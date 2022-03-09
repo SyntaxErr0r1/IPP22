@@ -179,9 +179,9 @@ class Instruction {
     public $order;
     public $opcode;
 
-    protected $operand1;
-    protected $operand2;
-    protected $operand3;
+    public $operand1;
+    public $operand2;
+    public $operand3;
 
     /**
      * Creates the instruction obejct with expected operand types
@@ -336,7 +336,7 @@ if($argc > 1){
 $lang_id = false;
 $parse_result = true;
 $line_cnt = 1;
-$instruction_cnt = 0;
+$instruction_cnt = 1;
 $exit_code = 0;
 $program = [];
 
@@ -400,6 +400,66 @@ $parse_result_str = $parse_result ? "ok" : "error";
 error_log("Parse result is ". $parse_result_str);
 
 // var_dump($program);
+
+/**
+ * Generating XML
+ */
+$xw = xmlwriter_open_memory();
+xmlwriter_set_indent($xw, 1);
+$res = xmlwriter_set_indent_string($xw, '   ');
+xmlwriter_start_document($xw, '1.0', 'UTF-8');
+xmlwriter_start_element($xw,"program");
+
+foreach($program as $instr){
+    xmlwriter_start_element($xw,"instruction");
+    
+    xmlwriter_start_attribute($xw, 'opcode');
+    xmlwriter_text($xw, $instr->name);
+    xmlwriter_end_attribute($xw);
+
+    xmlwriter_start_attribute($xw, 'order');
+    xmlwriter_text($xw, $instr->order);
+    xmlwriter_end_attribute($xw);
+
+    if($instr->operand1->accepted_operand != OM::NONE){
+        xmlwriter_start_element($xw,"arg1");
+        
+        xmlwriter_start_attribute($xw, 'type');
+        xmlwriter_text($xw, $instr->operand1->type);
+        xmlwriter_end_attribute($xw);
+        
+        xmlwriter_text($xw,$instr->operand1->value);
+        xmlwriter_end_element($xw);
+    }
+    
+    if($instr->operand2->accepted_operand != OM::NONE){
+        xmlwriter_start_element($xw,"arg2");
+        
+        xmlwriter_start_attribute($xw, 'type');
+        xmlwriter_text($xw, $instr->operand2->type);
+        xmlwriter_end_attribute($xw);
+        
+        xmlwriter_text($xw,$instr->operand2->value);
+        xmlwriter_end_element($xw);
+    }
+    
+    if($instr->operand3->accepted_operand != OM::NONE){
+        xmlwriter_start_element($xw,"arg3");
+        
+        xmlwriter_start_attribute($xw, 'type');
+        xmlwriter_text($xw, $instr->operand3->type);
+        xmlwriter_end_attribute($xw);
+        
+        xmlwriter_text($xw,$instr->operand3->value);
+        xmlwriter_end_element($xw);
+    }
+    
+    xmlwriter_end_element($xw);
+}
+
+xmlwriter_end_element($xw);
+xmlwriter_end_document($xw);
+echo(xmlwriter_output_memory($xw));
 
 exit($exit_code);
 

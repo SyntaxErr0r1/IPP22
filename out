@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<program>
+   <instruction opcode="DEFVAR" order="1">
+      <arg1 type="var">GF@counter</arg1>
+   </instruction>
+   <instruction opcode="MOVE" order="2">
+      <arg1 type="var">GF@counter</arg1>
+      <arg2 type="string">string@</arg2>
+   </instruction>
+   <instruction opcode="LABEL" order="3">
+      <arg1 type="label">while</arg1>
+   </instruction>
+   <instruction opcode="JUMPIFEQ" order="4">
+      <arg1 type="label">end</arg1>
+      <arg2 type="var">GF@counter</arg2>
+      <arg3 type="string">string@aaa</arg3>
+   </instruction>
+   <instruction opcode="WRITE" order="5">
+      <arg1 type="string">string@Proměnná\032GF@counter\032obsahuje\032</arg1>
+   </instruction>
+   <instruction opcode="WRITE" order="6">
+      <arg1 type="var">GF@counter</arg1>
+   </instruction>
+   <instruction opcode="WRITE" order="7">
+      <arg1 type="string">string@\010</arg1>
+   </instruction>
+   <instruction opcode="CONCAT" order="8">
+      <arg1 type="var">GF@counter</arg1>
+      <arg2 type="var">GF@counter</arg2>
+      <arg3 type="string">string@a</arg3>
+   </instruction>
+   <instruction opcode="JUMP" order="9">
+      <arg1 type="label">while</arg1>
+   </instruction>
+   <instruction opcode="LABEL" order="10">
+      <arg1 type="label">end</arg1>
+   </instruction>
+</program>
