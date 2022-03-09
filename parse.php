@@ -1,14 +1,31 @@
 <?php
 ini_set('display_errors','stderr');
 
+/**
+ * Prints an error about unexpected operand string
+ * 
+ * @param current_str the actual string which we got
+ * @param expected the operand object, which contains info about the expected type
+ */
 function error_unexpected_op($current_str,$expected){
     error_log("\033[31mSyntax error\033[0m: Wrong operand: \033[33m".$current_str."\033[0m, but ".get_OM_string($expected->accepted_operand)." expected.");
 }
 
+/**
+ * Prints message with a debug prefix
+ */
 function debug_print ($msg) {
     fwrite(STDERR,"DEBUG: ".$msg."\n");
 }
 
+/**
+ * Searches the instruction set for a particular instruction
+ * 
+ * @param IS Array containing the Instruction objects
+ * @param instruction_name Name of the instruction which we want to get
+ * 
+ * @return Instruction based on the name
+ */
 function get_instruction($IS, $instruction_name){
 
     foreach ($IS as $instruction){
@@ -17,7 +34,7 @@ function get_instruction($IS, $instruction_name){
             return NULL;
         }
         if($instruction->name == $instruction_name){
-            return $instruction;
+            return clone $instruction;
         }
     }
     return NULL;
@@ -33,17 +50,20 @@ const OP_VAR = "/(GF|TF|LF)@[a-zA-Z%!?&$*_-][a-zA-Z0-9%!?&$*_-]*/";
 const OP_SYMB_INT = "/int@(-|[0-9]*)[0-9]+/";
 const OP_SYMB_BOOL = "/bool@(true|false)/";
 const OP_SYMB_STRING = "/^string@.*$/";
+// const OP_SYMB_STRING = "/^string@[^\\\]*$/";
 const OP_SYMB_NIL = "/nil@nil/";
 
 
 /**
  * OM - Operand Mode
- * 
  */
 Enum OM {
     case NONE; case SYMBOL; case VARIABLE; case LABEL; case TYPE;
 }
 
+/**
+ * Returns string based on the provided operation mode for printing
+ */
 function get_OM_string($mode){
     switch($mode){
         case OM::NONE:
@@ -61,19 +81,64 @@ function get_OM_string($mode){
     }
 }
 
+/**
+ * Operand - Stores info about Operand and performs checks
+ * @property type String containing the type attribute in XML
+ * @property value Text content of the operand
+ * @property accepted_operand OM Enum to check the syntax
+ */
 class Operand {
     public $type;
     public $value;
 
     public $accepted_operand;
-    public $expected_regex;
+    // public $expected_regex;
 
-
+    /**
+     * Stores provided value and determines argument type
+     */
+    function load_value($value){
+        $this->value = $value;
+        switch($this->accepted_operand){
+            case OM::SYMBOL:
+                if( preg_match(OP_SYMB_INT,$value) ){
+                    $this->type = "var";
+                }else if(preg_match(OP_SYMB_STRING,$value)){
+                    $this->type = "string";
+                }else if(preg_match(OP_SYMB_BOOL,$value)){
+                    $this->type = "bool";
+                }else if(preg_match(OP_SYMB_NIL,$value)){
+                    $this->type = "nil";
+                }else if(preg_match(OP_VAR,$value)){
+                    $this->type = "var";
+                }else{
+                    error_log("INTERNAL ERROR: unchecked value in load_value!");
+                }
+                break;
+            case OM::VARIABLE:
+                $this->type = "var";
+                break;
+            case OM::LABEL:
+                $this->type = "label";
+                break;
+            case OM::TYPE:
+                $this->type = "type";
+                break;
+            case OM::NONE:
+                error_log("INTERNAL ERROR (load_value): Trying to load value into operand which should be empty!");
+                break;
+            default:
+                error_log("INTERNAL ERROR (load_value): Unhandled case!");
+        }
+    }
 
     function is_valid(){
         return $this->is_valid_value($this->value);
     }
 
+    /**
+     * Checks if the provided value is valid (matches the expected regex based on the mode (type))
+     */
     function is_valid_value($value){
 
         if($this->accepted_operand == OM::SYMBOL){
@@ -99,12 +164,15 @@ class Operand {
                 else
                     return false;
             }
+            error_log("Internal Error: Unhlandled accepted operand in is_valid()");
         }
-        error_log("Internal Error: Unhlandled accepted operand in is_valid()");
     }
 
 }
 
+/**
+ * Instruction - stores info about an instruction & allows to check operands
+ */
 class Instruction {
     // Properties
     public $name;
@@ -116,7 +184,9 @@ class Instruction {
     protected $operand3;
 
     /**
-     * @brief creates the isntruction obejct
+     * Creates the instruction obejct with expected operand types
+     * @param name Instruction name
+     * @param operandN_mode OM Enum which is expected at the particular place (N - number <1,3>)
      */
     public function __construct($name, $operand1_mode = OM::NONE, $operand2_mode = OM::NONE, $operand3_mode = OM::NONE){
         $this->name = strtoupper( $name );
@@ -128,6 +198,12 @@ class Instruction {
         $this->operand1->accepted_operand = $operand1_mode;
         $this->operand2->accepted_operand = $operand2_mode;
         $this->operand3->accepted_operand = $operand3_mode;
+    }
+
+    public function __clone(){
+        $this->operand1 = clone $this->operand1;
+        $this->operand2 = clone $this->operand2;
+        $this->operand3 = clone $this->operand3;
     }
     
     /**
@@ -171,18 +247,36 @@ class Instruction {
         error_log("OPERANDS SYNTAX:"."OP1 ".$op1.", OP2 ".$op2.", OP3 ".$op3);
         if(!empty($operands_array)){
             $remaining_operands = join($operands_array);
-            if($remaining_operands != "" && !ctype_space($line)){
+            if($remaining_operands != "" && !ctype_space($remaining_operands)){
                 error_log("\033[31mSyntax error\033[0m: Unexpected character sequence: \033[33m".join(" ",$operands_array)."\033[0m");
                 return false;
             }
         }
         return $op1 && $op2 && $op3;
     }
+
+    function load_operands($operands_array){
+        if($this->check_operands($operands_array)){
+            if($this->operand1->accepted_operand != OM::NONE)
+                $this->operand1->load_value($operands_array[0]);
+            if($this->operand2->accepted_operand != OM::NONE)
+                $this->operand2->load_value($operands_array[1]);
+            if($this->operand3->accepted_operand != OM::NONE)
+                $this->operand3->load_value($operands_array[2]);
+
+            return true;
+        }else{
+            error_log("Error: Couldn't load operands");
+            return false;
+        }
+    }
     // function generate_xml(){
 
     // }
 }
 
+// Instruction set block
+// Storing all the instructions in the instruction set array
 
 $INSTRUCTION_SET = [];
 //frames & function calls
@@ -229,6 +323,8 @@ array_push($INSTRUCTION_SET, new Instruction("EXIT",OM::SYMBOL));
 array_push($INSTRUCTION_SET, new Instruction("DPRINT",OM::SYMBOL));
 array_push($INSTRUCTION_SET, new Instruction("BREAK",OM::VARIABLE));
 
+
+//arguments check
 if($argc > 1){
     if($argv[1] == "--help"){
         echo("Usage: php parser.php [options]\n");
@@ -236,9 +332,13 @@ if($argc > 1){
     }
 }
 
+
 $lang_id = false;
 $parse_result = true;
 $line_cnt = 1;
+$instruction_cnt = 0;
+$exit_code = 0;
+$program = [];
 
 while($line = fgets(STDIN)){
     //clear new lines
@@ -261,23 +361,30 @@ while($line = fgets(STDIN)){
     $instruction_str = $line_split[0];
     $instruction = NULL;
     $instruction = get_instruction($INSTRUCTION_SET, $instruction_str);
+    $instruction->opcode = $instruction_str;
 
     if($instruction != NULL){
-        // error_log("Found ".$instruction->name."");
         //found instruction, checking operand syntax
         array_shift($line_split);
-        // var_dump($line_split);
-        $operands_valid = $instruction->check_operands($line_split);
+        // $operands_valid = $instruction->check_operands($line_split);
+
+        $operands_valid = $instruction->load_operands($line_split);
         if($operands_valid){
             // error_log("Operands ok\n");
         }else{
             error_log("\033[31mSyntax error \033[0m(line \033[33m".$line_cnt."\033[0m): Operands error\n");
             $parse_result = false;
+            $exit_code = 23;
         }
+
+        $instruction->order = $instruction_cnt++;
     }else{
-        error_log("\033[31mSyntax error \033[0m(line \033[33m".$line_cnt."\033[0m): Invalid instruction: \033[33m".($instruction_str)."\033[0m\n");
+        error_log("\033[31mSyntax error \033[0m(line \033[33m".$line_cnt."\033[0m): Invalid instruction opcode: \033[33m".($instruction_str)."\033[0m\n");
         $parse_result = false;
+        $exit_code = 22;
     }
+
+    array_push($program,$instruction);
 
     while_end:
         $line_cnt++;
@@ -286,9 +393,14 @@ while($line = fgets(STDIN)){
 
 if(!$lang_id){
     fwrite(STDERR,"Error: header '.IPPcode22' missing.\n");
+    $exit_code = 21;
 }
 
 $parse_result_str = $parse_result ? "ok" : "error";
 error_log("Parse result is ". $parse_result_str);
+
+// var_dump($program);
+
+exit($exit_code);
 
 ?>
