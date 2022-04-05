@@ -1,0 +1,5 @@
+DEFVAR GF@a
+MOVE GF@a int@10
+MUL GF@a GF@a int@2
+WRITE GF@a
+WRITE bool@true
