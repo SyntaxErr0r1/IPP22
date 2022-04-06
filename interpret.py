@@ -54,17 +54,21 @@ class DataStorage:
     LF = []     #stack of lists of variables
     TF = None
 
-    def get_frame(self, frame):
-        if frame == "GF":
+    def get_var_frame(self, var_id):
+        frame_name = get_frame_name(var_id)
+        return self.get_frame(frame_name)
+
+    def get_frame(self, frame_name):
+        if frame_name == "GF":
             return self.GF
-        if frame == "TF":
+        if frame_name == "TF":
             return self.TF
-        if frame == "LF":
+        if frame_name == "LF":
             return self.LF
 
     def exists_variable(self,var_id):
         var_name = get_var_name(var_id)
-        frame_name = get_var_frame(var_id)
+        frame_name = get_frame_name(var_id)
         frame = self.get_frame(frame_name)
         
         for variable in frame:
@@ -74,7 +78,7 @@ class DataStorage:
         
     def create_variable(self, var_id):
         var_name = get_var_name(var_id)
-        frame_name = get_var_frame(var_id)
+        frame_name = get_frame_name(var_id)
         frame = self.get_frame(frame_name)
 
         if(frame == None):
@@ -86,38 +90,49 @@ class DataStorage:
 
         frame.append(new_var)
 
-    def assign_variable(self,var_id,value):
+    def assign_variable(self,var_id,value,type):
         var_name = get_var_name(var_id)
-        frame_name = get_var_frame(var_id)
+        frame_name = get_frame_name(var_id)
         frame = self.get_frame(frame_name)
         
         for variable in frame:
             if variable.name == var_name:
                 variable.value = value
+                variable.type = type
+                variable.type_adjust()
                 return
         
-
-    def get_var(frame,var_name):
+    def get_var_by_name(self,frame,var_name):
         for variable in frame:
             if variable.name == var_name:
                 return variable
         return None
+    def get_var_by_id(self,frame,var_id):
+        var_name = get_var_name(var_id)
+        return self.get_var_by_name(frame,var_name)
 
 class Variable:
     name = None
     type = None
     value = None
-    def get_type(self):
+
+    def type_adjust(self):
+        if self.type == "int":
+            self.value = int(self.value)
+        elif self.type == "bool":
+            self.value = 1 if self.value == "true" else 0
+        
+    def str_type(self):
         return "NONE" if (self.type == None) else self.type
-    def get_value(self):
-        return "NONE" if (self.value == None) else self.value
+    def str_value(self):
+        return "NONE" if (self.value == None) else str(self.value)
     def __str__(self):
-        return "Variable: {name: "+self.name+",\t type:"+self.get_type()+",\t value:"+self.get_value()+"}"
+        return "Variable: {name: "+self.name+",\t type:"+self.str_type()+",\t value:"+self.str_value()+"}"
 
 storage = DataStorage()
 
 
-def get_var_frame(var_id):
+def get_frame_name(var_id):
     var_split = var_id.split("@")
     frame_name = var_split[0]
     return frame_name
@@ -127,23 +142,47 @@ def get_var_name(var_id):
     var_name = var_split[1]
     return var_name
 
+def get_var_value(var_id):
+    return get_var(var_id).value
+
+def get_var(var_id):
+    frame = storage.get_var_frame(var_id)
+    return storage.get_var_by_id(frame,var_id)
+
+def get_symbol(symbol_arg):
+    if symbol_arg.type == "var":
+        return get_var(symbol_arg.value)
+    else:
+        symbol = Variable()
+        symbol.value = symbol_arg.value
+        symbol.type = symbol_arg.type
+        symbol.type_adjust()
+        return symbol
+
+def get_symbol_value(symbol_arg):
+    return get_symbol(symbol_arg).value
+    
 
 #instruction actions
-
 def defvar_action(instruction):
     var_id = instruction.args[0].value
     storage.create_variable(var_id)
 
 def move_action(instruction):
-    var_id = instruction.args[0].value
-    type = instruction.args[1].type
-    value = instruction.args[1].value
+    dest_var = instruction.args[0]
+    origin_var = instruction.args[1]
     #can be either existing var (copy type and value)
-    if(type == "var"):
-        eprint("not implemented")
-    #or value with type specified
-    else:
-        storage.assign_variable(var_id,value)
+    origin = get_symbol(origin_var)
+    # print("assigning to "+dest_var.value+" from "+str(origin))
+    storage.assign_variable(dest_var.value,origin.value,origin.type)
+def add_action(instruction):
+    dest_var = instruction.args[0]
+    number_arg1 = instruction.args[1]
+    number_arg2 = instruction.args[2]
+
+    number1 = get_symbol(number_arg1).value
+    number2 = get_symbol(number_arg2).value
+    storage.assign_variable(dest_var.value,number1+number2,"int")
 
 #probably could make universal interface for symbol (variables/values) to work with the value.
 
@@ -180,7 +219,26 @@ set["DEFVAR"]
 
 
 storage.create_variable("GF@ahoj")
-storage.assign_variable("GF@ahoj","ciao")
+storage.assign_variable("GF@ahoj",12,"int")
+
+arg1 = Argument()
+arg1.type = "int"
+arg1.value = "10"
+value1 = get_symbol_value(arg1)
+
+arg2 = Argument()
+arg2.type = "var"
+arg2.value = "GF@ahoj"
+value2 = get_symbol_value(arg2)
+
+instr = Instruction("MOVE")
+instr.args.append(arg2)
+instr.args.append(arg2)
+instr.args.append(arg2)
+# move_action(instr)
+add_action(instr)
+ 
+# print("plus ="+str(value1+value2))
 
 for var in storage.GF:
     print(var)
