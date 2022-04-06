@@ -3,19 +3,21 @@
    <instruction opcode="DEFVAR" order="1">
       <arg1 type="var">GF@a</arg1>
    </instruction>
-   <instruction opcode="MOVE" order="2">
+   <instruction opcode="ADD" order="2">
       <arg1 type="var">GF@a</arg1>
-      <arg2 type="int">10</arg2>
+      <arg2 type="int">-10</arg2>
+      <arg3 type="int">20</arg3>
    </instruction>
-   <instruction opcode="MUL" order="3">
+   <instruction opcode="WRITE" order="3">
       <arg1 type="var">GF@a</arg1>
-      <arg2 type="var">GF@a</arg2>
-      <arg3 type="int">2</arg3>
    </instruction>
    <instruction opcode="WRITE" order="4">
-      <arg1 type="var">GF@a</arg1>
+      <arg1 type="string">FUNGUJE</arg1>
    </instruction>
    <instruction opcode="WRITE" order="5">
       <arg1 type="bool">true</arg1>
+   </instruction>
+   <instruction opcode="WRITE" order="6">
+      <arg1 type="string">řetězec\032s\032lomítkem\032\092\032a\010novým\035řádkem</arg1>
    </instruction>
 </program>

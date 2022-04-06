@@ -1,4 +1,4 @@
-from xml.etree.ElementTree import XML
+import xml.etree.ElementTree as XML
 from xml.dom import minidom
 
 # from enum import Enum 
@@ -12,7 +12,6 @@ sourcename = "program.xml"
 inputname = "input.xml"
 
 sourcefile = open(sourcename,"r")
-
 
 # class arg_type(Enum):
 #     NIL = 0
@@ -30,10 +29,19 @@ class Instruction:
     action = None
     def __init__(self,opcode):
         self.opcode = opcode
+    def __str__(self):
+        strn = "Instruction: {opcode: "+self.opcode+",\targs: "
+        if len(self.args):
+            for arg in self.args:
+                strn += "\n\t"+str(arg)
+        strn += "}"
+        return strn
 
 class Argument:
     type = None
     value = None
+    def __str__(self):
+        return "Argument: {type: "+self.type+",\tvalue: "+str(self.value)+"}"
 
 class Frame:
     data = []
@@ -48,16 +56,19 @@ class Frame:
 # var_id is STRING variable name with frame (eg. GF@out)
 # var_name is STRING only the variable name (eg. out)
 # var is an instance of the Variable class
- 
+
 class DataStorage:
     GF = []     #list of variables
     LF = []     #stack of lists of variables
     TF = None
+    stack = []
 
+    #returns frame by var id
     def get_var_frame(self, var_id):
         frame_name = get_frame_name(var_id)
         return self.get_frame(frame_name)
 
+    #returns frame by frame id
     def get_frame(self, frame_name):
         if frame_name == "GF":
             return self.GF
@@ -65,16 +76,16 @@ class DataStorage:
             return self.TF
         if frame_name == "LF":
             return self.LF
-
+    
     def exists_variable(self,var_id):
         var_name = get_var_name(var_id)
         frame_name = get_frame_name(var_id)
         frame = self.get_frame(frame_name)
-        
+        #can cause error when frame undefined
         for variable in frame:
             if variable.name == var_name:
-                return 1
-        return 0
+                return True
+        return False
         
     def create_variable(self, var_id):
         var_name = get_var_name(var_id)
@@ -82,9 +93,12 @@ class DataStorage:
         frame = self.get_frame(frame_name)
 
         if(frame == None):
-            eprint("Error: frame does no exist!")
-            return
-        
+            eprint("Error: Frame "+frame_name+" does no exist!")
+            exit(55)
+        if self.exists_variable(var_id):
+            eprint("Error: Variable "+var_id+" already defined!")
+            exit(52)
+
         new_var = Variable()
         new_var.name = var_name
 
@@ -101,15 +115,48 @@ class DataStorage:
                 variable.type = type
                 variable.type_adjust()
                 return
+        eprint("Error: Variable "+var_id+" not defined!")
+        exit(54)
         
-    def get_var_by_name(self,frame,var_name):
+    
+    def __get_var_by_name(self,frame,var_name):
         for variable in frame:
             if variable.name == var_name:
                 return variable
         return None
-    def get_var_by_id(self,frame,var_id):
+
+    def __get_var_by_id(self,frame,var_id):
         var_name = get_var_name(var_id)
-        return self.get_var_by_name(frame,var_name)
+        var = self.__get_var_by_name(frame,var_name)
+        if var == None:
+            eprint("Error: Variable "+var_id+" not defined!")
+            exit(54)
+        else:
+            return var
+
+    def get_var(self,var_id):
+        frame = self.get_var_frame(var_id)
+        return self.__get_var_by_id(frame,var_id)
+
+    def create_frame(self):
+        self.TF = []
+    
+    def push_frame(self):
+        if self.TF == None:
+            eprint("Error Temporary Frame does not exist!")
+            exit(55)
+        self.LF.append(self.TF)
+        self.TF = None
+
+    def pop_frame(self):
+        if len(self.lf) == 0:
+            eprint("Error Local Frame stack empty!")
+            exit(55)
+        self.TF = self.LF.pop()
+    
+    # def stack_push(self,var):
+    #     self.
+    
 
 class Variable:
     name = None
@@ -120,17 +167,38 @@ class Variable:
         if self.type == "int":
             self.value = int(self.value)
         elif self.type == "bool":
-            self.value = 1 if self.value == "true" else 0
+            self.value = True if self.value == "true" else False
+        elif self.type == "string":
+            self.value = replace_altcodes(self.value)
         
+    def str_name(self):
+        return "NONE" if (self.name == None) else self.name
     def str_type(self):
         return "NONE" if (self.type == None) else self.type
     def str_value(self):
         return "NONE" if (self.value == None) else str(self.value)
     def __str__(self):
-        return "Variable: {name: "+self.name+",\t type:"+self.str_type()+",\t value:"+self.str_value()+"}"
+        return "Variable: {name: "+self.str_name()+",\t type:"+self.str_type()+",\t value:"+self.str_value()+"}"
 
 storage = DataStorage()
 
+def replace_altcodes(string):
+    altcode_chars_left = 0
+    altcode_str = ""
+    result_str = ""
+    for i in range(0,len(string)):
+        current_char = string[i]
+        if current_char == "\\":
+            altcode_chars_left = 3
+        elif altcode_chars_left > 0:
+            altcode_str += current_char
+            altcode_chars_left -= 1
+            if altcode_chars_left == 0:
+                result_str += chr(int(altcode_str))
+                altcode_str = ""
+        else:
+            result_str += current_char
+    return result_str
 
 def get_frame_name(var_id):
     var_split = var_id.split("@")
@@ -142,16 +210,12 @@ def get_var_name(var_id):
     var_name = var_split[1]
     return var_name
 
-def get_var_value(var_id):
-    return get_var(var_id).value
-
-def get_var(var_id):
-    frame = storage.get_var_frame(var_id)
-    return storage.get_var_by_id(frame,var_id)
-
+#returns Variable object:
+#if symbol_arg is type VAR  => returns variable from STORAGE
+#if symbol_arg is VALUE     => returns NEW VARiable object (only temporary variable, not in storage)
 def get_symbol(symbol_arg):
     if symbol_arg.type == "var":
-        return get_var(symbol_arg.value)
+        return storage.get_var(symbol_arg.value)
     else:
         symbol = Variable()
         symbol.value = symbol_arg.value
@@ -159,11 +223,8 @@ def get_symbol(symbol_arg):
         symbol.type_adjust()
         return symbol
 
-def get_symbol_value(symbol_arg):
-    return get_symbol(symbol_arg).value
-    
+#INSTRUCTION ACTIONS
 
-#instruction actions
 def defvar_action(instruction):
     var_id = instruction.args[0].value
     storage.create_variable(var_id)
@@ -171,9 +232,7 @@ def defvar_action(instruction):
 def move_action(instruction):
     dest_var = instruction.args[0]
     origin_var = instruction.args[1]
-    #can be either existing var (copy type and value)
     origin = get_symbol(origin_var)
-    # print("assigning to "+dest_var.value+" from "+str(origin))
     storage.assign_variable(dest_var.value,origin.value,origin.type)
 def add_action(instruction):
     dest_var = instruction.args[0]
@@ -184,61 +243,74 @@ def add_action(instruction):
     number2 = get_symbol(number_arg2).value
     storage.assign_variable(dest_var.value,number1+number2,"int")
 
-#probably could make universal interface for symbol (variables/values) to work with the value.
+def write_action(instruction):
+    string_var = get_symbol(instruction.args[0])
+    print(string_var.value, end="",flush=True)
 
-
-# def setup_instruction(instruction):
-#     match instruction.opcode:
-#         case "DEFVAR":
-#             print("ciao")
             
-
-#for instruction in program
-    #get opcode
-    #new_instr = new Instruction()
-    #
-    #for argument in instruction
-        #new_instr.add_arg(argument)
-
-
-#sort instructions by order
-
-#for instruction in instructions
-    #instruction.execute()
-
-
-
-    
-
-
-# defvar.action()
-
+#instruction action mapping
 set = {}
 set["DEFVAR"] = defvar_action
-set["DEFVAR"]
+set["MOVE"] = move_action
+set["ADD"] = add_action
+set["WRITE"] = write_action
+
+program = []
+tree = XML.parse(sourcename)
+program_element = tree.getroot()
+
+for instruction_element in program_element:
+    instruction = Instruction(instruction_element.get("opcode"))
+    instruction.order = instruction_element.get("order")
+    args = []
+    for argument_element in instruction_element:
+        argument = Argument()
+        argument.type = argument_element.get("type")
+        argument.value = argument_element.text
+        args.append(argument)
+    instruction.args = args
+    # print(instruction)
+    program.append(instruction)
 
 
-storage.create_variable("GF@ahoj")
-storage.assign_variable("GF@ahoj",12,"int")
+for instruction in program:
+    set[instruction.opcode](instruction)
 
-arg1 = Argument()
-arg1.type = "int"
-arg1.value = "10"
-value1 = get_symbol_value(arg1)
 
-arg2 = Argument()
-arg2.type = "var"
-arg2.value = "GF@ahoj"
-value2 = get_symbol_value(arg2)
 
-instr = Instruction("MOVE")
-instr.args.append(arg2)
-instr.args.append(arg2)
-instr.args.append(arg2)
-# move_action(instr)
-add_action(instr)
+
+
+# # storage.create_variable("GF@ahoj")
+# # storage.assign_variable("GF@ahoj",12,"int")
+
+
+# arg1 = Argument()
+# arg1.type = "int"
+# arg1.value = "10"
+# # value1 = get_symbol_value(arg1)
+
+# arg2 = Argument()
+# arg2.type = "var"
+# arg2.value = "GF@ahoj"
+# # value2 = get_symbol_value(arg2)
+
+# move_instr = Instruction("MOVE")
+# move_instr.args.append(arg2)
+# move_instr.args.append(arg1)
+
+# instr = Instruction("MOVE")
+# instr.args.append(arg2)
+# instr.args.append(arg2)
+# instr.args.append(arg2)
+
+# write_instr = Instruction("MOVE")
+# write_instr.args.append(arg2)
+# defvar_action(instr)
+# move_action(move_instr)
+# add_action(instr)
+# write_action(write_instr)
  
 # print("plus ="+str(value1+value2))
 
-for var in storage.GF:
-    print(var)
+# for var in storage.GF:
+#     print(var)
