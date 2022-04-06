@@ -1,7 +1,19 @@
-DEFVAR GF@a
+CREATEFRAME
+DEFVAR TF@a
 # MOVE GF@a int@10
-ADD GF@a int@-10 int@20
-WRITE GF@a
-WRITE string@FUNGUJE
-WRITE bool@true
-WRITE string@řetězec\032s\032lomítkem\032\092\032a\010novým\035řádkem
+#ADD TF@a int@-10 int@20
+#PUSHFRAME
+
+MOVE TF@a int@100
+PUSHFRAME
+
+DEFVAR GF@B
+PUSHS string@ahoj
+PUSHS int@1
+POPS GF@B
+ADD GF@B GF@B LF@a
+WRITE GF@B
+
+# WRITE string@FUNGUJE
+# WRITE bool@true
+# WRITE string@řetězec\032s\032lomítkem\032\092\032a\010novým\035řádkem

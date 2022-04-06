@@ -1,23 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <program language="IPPcode22">
-   <instruction opcode="DEFVAR" order="1">
-      <arg1 type="var">GF@a</arg1>
+   <instruction opcode="CREATEFRAME" order="1"/>
+   <instruction opcode="DEFVAR" order="2">
+      <arg1 type="var">TF@a</arg1>
    </instruction>
-   <instruction opcode="ADD" order="2">
-      <arg1 type="var">GF@a</arg1>
-      <arg2 type="int">-10</arg2>
-      <arg3 type="int">20</arg3>
+   <instruction opcode="MOVE" order="3">
+      <arg1 type="var">TF@a</arg1>
+      <arg2 type="int">100</arg2>
    </instruction>
-   <instruction opcode="WRITE" order="3">
-      <arg1 type="var">GF@a</arg1>
+   <instruction opcode="PUSHFRAME" order="4"/>
+   <instruction opcode="DEFVAR" order="5">
+      <arg1 type="var">GF@B</arg1>
    </instruction>
-   <instruction opcode="WRITE" order="4">
-      <arg1 type="string">FUNGUJE</arg1>
+   <instruction opcode="PUSHS" order="6">
+      <arg1 type="string">ahoj</arg1>
    </instruction>
-   <instruction opcode="WRITE" order="5">
-      <arg1 type="bool">true</arg1>
+   <instruction opcode="PUSHS" order="7">
+      <arg1 type="int">1</arg1>
    </instruction>
-   <instruction opcode="WRITE" order="6">
-      <arg1 type="string">řetězec\032s\032lomítkem\032\092\032a\010novým\035řádkem</arg1>
+   <instruction opcode="POPS" order="8">
+      <arg1 type="var">GF@B</arg1>
+   </instruction>
+   <instruction opcode="ADD" order="9">
+      <arg1 type="var">GF@B</arg1>
+      <arg2 type="var">GF@B</arg2>
+      <arg3 type="var">LF@a</arg3>
+   </instruction>
+   <instruction opcode="WRITE" order="10">
+      <arg1 type="var">GF@B</arg1>
    </instruction>
 </program>

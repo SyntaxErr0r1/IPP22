@@ -75,7 +75,7 @@ class DataStorage:
         if frame_name == "TF":
             return self.TF
         if frame_name == "LF":
-            return self.LF
+            return self.LF[-1] if len(self.LF) else None
     
     def exists_variable(self,var_id):
         var_name = get_var_name(var_id)
@@ -93,7 +93,7 @@ class DataStorage:
         frame = self.get_frame(frame_name)
 
         if(frame == None):
-            eprint("Error: Frame "+frame_name+" does no exist!")
+            eprint("Error: Frame "+frame_name+" does not exist!")
             exit(55)
         if self.exists_variable(var_id):
             eprint("Error: Variable "+var_id+" already defined!")
@@ -113,7 +113,7 @@ class DataStorage:
             if variable.name == var_name:
                 variable.value = value
                 variable.type = type
-                variable.type_adjust()
+                #variable.type_adjust()
                 return
         eprint("Error: Variable "+var_id+" not defined!")
         exit(54)
@@ -136,6 +136,9 @@ class DataStorage:
 
     def get_var(self,var_id):
         frame = self.get_var_frame(var_id)
+        if(frame == None):
+            eprint("Error: Frame for variable "+var_id+" does not exist!")
+            exit(55)
         return self.__get_var_by_id(frame,var_id)
 
     def create_frame(self):
@@ -149,11 +152,13 @@ class DataStorage:
         self.TF = None
 
     def pop_frame(self):
-        if len(self.lf) == 0:
+        if len(self.LF) == 0:
             eprint("Error Local Frame stack empty!")
             exit(55)
         self.TF = self.LF.pop()
     
+
+
     # def stack_push(self,var):
     #     self.
     
@@ -164,6 +169,8 @@ class Variable:
     value = None
 
     def type_adjust(self):
+        if self.type == None:
+            eprint("INTERNAL ERROR: type_adjust on None type in "+str(self))
         if self.type == "int":
             self.value = int(self.value)
         elif self.type == "bool":
@@ -179,6 +186,12 @@ class Variable:
         return "NONE" if (self.value == None) else str(self.value)
     def __str__(self):
         return "Variable: {name: "+self.str_name()+",\t type:"+self.str_type()+",\t value:"+self.str_value()+"}"
+    
+    def get_value(self):
+        if(self.value == None):
+            eprint("Error: Variable "+self.name+" missing value!")
+            exit(56)
+        return self.value
 
 storage = DataStorage()
 
@@ -233,27 +246,52 @@ def move_action(instruction):
     dest_var = instruction.args[0]
     origin_var = instruction.args[1]
     origin = get_symbol(origin_var)
-    storage.assign_variable(dest_var.value,origin.value,origin.type)
+    storage.assign_variable(dest_var.value,origin.get_value(),origin.type)
 def add_action(instruction):
     dest_var = instruction.args[0]
     number_arg1 = instruction.args[1]
     number_arg2 = instruction.args[2]
 
-    number1 = get_symbol(number_arg1).value
-    number2 = get_symbol(number_arg2).value
+    number1 = get_symbol(number_arg1).get_value()
+    number2 = get_symbol(number_arg2).get_value()
     storage.assign_variable(dest_var.value,number1+number2,"int")
 
 def write_action(instruction):
     string_var = get_symbol(instruction.args[0])
-    print(string_var.value, end="",flush=True)
+    print(string_var.get_value(), end="",flush=True)
 
-            
+def createframe_action(instruction):
+    storage.create_frame()
+def pushframe_action(instruction):
+    storage.push_frame()
+def popframe_action(instruction):
+    storage.pop_frame()
+
+def pops_action(instruction):
+    if len(storage.stack) == 0:
+        eprint("Error: Stack is empty!")
+        exit(56)
+    var_from_stack = storage.stack.pop()
+    var_id = instruction.args[0]
+    storage.assign_variable(var_id.value,var_from_stack.get_value(),var_from_stack.type)
+
+def pushs_action(instruction):
+    #todo check for behavior when calling PUSHS on a variable without value
+    arg = instruction.args[0]
+    variable = get_symbol(arg)
+    storage.stack.append(variable)
+          
 #instruction action mapping
 set = {}
 set["DEFVAR"] = defvar_action
 set["MOVE"] = move_action
 set["ADD"] = add_action
 set["WRITE"] = write_action
+set["CREATEFRAME"] = createframe_action
+set["PUSHFRAME"] = pushframe_action
+set["POPFRAME"] = popframe_action
+set["POPS"] = pops_action
+set["PUSHS"] = pushs_action
 
 program = []
 tree = XML.parse(sourcename)
@@ -272,45 +310,8 @@ for instruction_element in program_element:
     # print(instruction)
     program.append(instruction)
 
-
 for instruction in program:
     set[instruction.opcode](instruction)
-
-
-
-
-
-# # storage.create_variable("GF@ahoj")
-# # storage.assign_variable("GF@ahoj",12,"int")
-
-
-# arg1 = Argument()
-# arg1.type = "int"
-# arg1.value = "10"
-# # value1 = get_symbol_value(arg1)
-
-# arg2 = Argument()
-# arg2.type = "var"
-# arg2.value = "GF@ahoj"
-# # value2 = get_symbol_value(arg2)
-
-# move_instr = Instruction("MOVE")
-# move_instr.args.append(arg2)
-# move_instr.args.append(arg1)
-
-# instr = Instruction("MOVE")
-# instr.args.append(arg2)
-# instr.args.append(arg2)
-# instr.args.append(arg2)
-
-# write_instr = Instruction("MOVE")
-# write_instr.args.append(arg2)
-# defvar_action(instr)
-# move_action(move_instr)
-# add_action(instr)
-# write_action(write_instr)
- 
-# print("plus ="+str(value1+value2))
 
 # for var in storage.GF:
 #     print(var)
