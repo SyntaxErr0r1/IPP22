@@ -8,10 +8,10 @@ DEFVAR GF@a
 # AND GF@a bool@true int@1
 # STRI2INT GF@a string@cai int@2
 # READ GF@a string
-
-MOVE GF@a string@code
-TYPE GF@a int@1
-WRITE GF@a
+JUMPIFEQ heh string@aa string@aab
+WRITE string@ciao
+LABEL heh
+WRITE string@ahoj
 
 # WRITE string@FUNGUJE
 # WRITE bool@true

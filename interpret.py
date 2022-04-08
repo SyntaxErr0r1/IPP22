@@ -35,6 +35,7 @@ class Instruction:
     order = None
     args = []
     action = None
+
     def __init__(self,opcode):
         self.opcode = opcode
     def __str__(self):
@@ -71,6 +72,10 @@ class DataStorage:
     TF = None
     stack = []
 
+    callstack = []
+    labels = []
+    program = []
+    program_counter = 0
     #returns frame by var id
     def get_var_frame(self, var_id):
         frame_name = get_frame_name(var_id)
@@ -167,8 +172,13 @@ class DataStorage:
     
 
 
-    # def stack_push(self,var):
-    #     self.
+class Label:
+    name = None
+    index = None
+
+    def __init__(self,name,index):
+        self.name = name
+        self.index = index
     
 
 class Variable:
@@ -311,6 +321,14 @@ def logical_operation(instruction,operator):
 
     storage.assign_variable(res_arg.value,result,"bool")
 
+def jump(label_name):
+    for label in storage.labels:
+        if label.name == label_name:
+            # eprint("PC changed from"+program_counter+"to",label.index)
+            storage.program_counter = label.index
+            return
+    eprint("Error: Label "+label_name+" does not exist")
+    exit(52)
 
 #INSTRUCTION ACTIONS
 def defvar_action(instruction):
@@ -478,6 +496,29 @@ def dprint_action(instruction):
     op1 = get_symbol(instruction.args[0])
     eprint(op1.get_value(),end='')
 
+def label_action(instruction):
+    return
+
+def label_register(instruction,index):
+    label_name = instruction.args[0]
+    # index = instruction.index
+    label = Label(label_name.value,index)
+    storage.labels.append(label)
+
+def jump_action(instruction):
+    label_name = instruction.args[0].value
+    jump(label_name)
+
+def jumpifeq_action(instruction):
+    label_name = instruction.args[0].value
+    op1 = get_symbol(instruction.args[1])
+    op2 = get_symbol(instruction.args[2])
+    if(op1.type != op2.type and (op1.type != "nil" and op1.type != "nil")):
+        eprint("Error: Types are not matching!")
+        exit(53)
+    if op1.get_value() == op2.get_value():
+        jump(label_name)
+
 #instruction action mapping
 set = {}
 set["DEFVAR"] = defvar_action
@@ -506,13 +547,15 @@ set["STRLEN"] = strlen_action
 set["GETCHAR"] = getchar_action
 set["SETCHAR"] = setchar_action
 set["TYPE"] = type_action
+set["LABEL"] = label_action
+set["JUMP"] = jump_action
+set["JUMPIFEQ"] = jumpifeq_action
 
 set["DPRINT"] = dprint_action
 
-callstack = []
-program = []
 tree = XML.parse(sourcename)
 program_element = tree.getroot()
+instructions_executed = 0
 
 for instruction_element in program_element:
     instruction = Instruction(instruction_element.get("opcode"))
@@ -525,10 +568,24 @@ for instruction_element in program_element:
         args.append(argument)
     instruction.args = args
     # print(instruction)
-    program.append(instruction)
+    storage.program.append(instruction)
 
-for instruction in program:
+storage.program.sort(key=lambda x: x.order)
+program_length = len(storage.program)
+
+for i in range(0,program_length):
+    instruction = storage.program[i]
+    if instruction.opcode == "LABEL":
+        label_register(instruction,i)
+
+while storage.program_counter < program_length:
+    instruction = storage.program[storage.program_counter]
     set[instruction.opcode](instruction)
+    instructions_executed += 1
+    storage.program_counter += 1
+
+# for instruction in program:
+#     set[instruction.opcode](instruction)
 
 # for var in storage.GF:
 #     print(var)

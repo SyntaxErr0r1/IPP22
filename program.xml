@@ -3,15 +3,18 @@
    <instruction opcode="DEFVAR" order="1">
       <arg1 type="var">GF@a</arg1>
    </instruction>
-   <instruction opcode="MOVE" order="2">
-      <arg1 type="var">GF@a</arg1>
-      <arg2 type="string">code</arg2>
+   <instruction opcode="JUMPIFEQ" order="2">
+      <arg1 type="label">heh</arg1>
+      <arg2 type="string">aa</arg2>
+      <arg3 type="string">aab</arg3>
    </instruction>
-   <instruction opcode="TYPE" order="3">
-      <arg1 type="var">GF@a</arg1>
-      <arg2 type="int">1</arg2>
+   <instruction opcode="WRITE" order="3">
+      <arg1 type="string">ciao</arg1>
    </instruction>
-   <instruction opcode="WRITE" order="4">
-      <arg1 type="var">GF@a</arg1>
+   <instruction opcode="LABEL" order="4">
+      <arg1 type="label">heh</arg1>
+   </instruction>
+   <instruction opcode="WRITE" order="5">
+      <arg1 type="string">ahoj</arg1>
    </instruction>
 </program>
