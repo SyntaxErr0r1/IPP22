@@ -1,18 +1,17 @@
-CREATEFRAME
-DEFVAR TF@a
+DEFVAR GF@a
 # MOVE GF@a int@10
-#ADD TF@a int@-10 int@20
+#ADD GF@a int@-10 int@20
 #PUSHFRAME
 
-MOVE TF@a int@100
-PUSHFRAME
+# MOVE GF@a int@100
+# SUB GF@a GF@a int@2
+# AND GF@a bool@true int@1
+# STRI2INT GF@a string@cai int@2
+# READ GF@a string
 
-DEFVAR GF@B
-PUSHS string@ahoj
-PUSHS int@1
-POPS GF@B
-ADD GF@B GF@B LF@a
-WRITE GF@B
+MOVE GF@a string@code
+TYPE GF@a int@1
+WRITE GF@a
 
 # WRITE string@FUNGUJE
 # WRITE bool@true

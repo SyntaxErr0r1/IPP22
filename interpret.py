@@ -1,3 +1,11 @@
+# CHYBY - CHYBOVE KODY
+# 52 - chyba při sémantických kontrolách vstupního kódu v IPPcode22 (např. použití nedefino-vaného návěští, redefinice proměnné);
+# 53 - běhová chyba interpretace – špatné typy operandů;
+# 54 - běhová chyba interpretace – přístup k neexistující proměnné (rámec existuje);
+# 55 - běhová chyba interpretace – rámec neexistuje (např. čtení z prázdného zásobníku rámců);
+# 56 - běhová chyba interpretace – chybějící hodnota (v proměnné, na datovém zásobníku nebov zásobníku volání);
+# 57 - běhová chyba interpretace – špatná hodnota operandu (např. dělení nulou, špatná návra-tová hodnota instrukce EXIT);
+# 58 - běhová chyba interpretace – chybná práce s řetězcem.
 import xml.etree.ElementTree as XML
 from xml.dom import minidom
 
@@ -215,11 +223,19 @@ def replace_altcodes(string):
 
 def get_frame_name(var_id):
     var_split = var_id.split("@")
+    if(len(var_split) < 2):
+        #!todo check if the code should really be 52
+        eprint("Error: wrong variable name format in: "+var_id)
+        exit(52)
     frame_name = var_split[0]
     return frame_name
 
 def get_var_name(var_id):
     var_split = var_id.split("@")
+    if(len(var_split) < 2):
+        #!todo check if the code should really be 52
+        eprint("Error: wrong variable name format in: "+var_id)
+        exit(52)
     var_name = var_split[1]
     return var_name
 
@@ -236,8 +252,67 @@ def get_symbol(symbol_arg):
         symbol.type_adjust()
         return symbol
 
-#INSTRUCTION ACTIONS
+def check_type(symbol,type):
+    if(symbol.type != type):
+        eprint("Error: exptected type "+type+" but got "+str(symbol))
+        exit(53)
 
+#action helper functions
+def arithmetic_operation(instruction, operator):
+    dest_var = instruction.args[0]
+    number_arg1 = instruction.args[1]
+    number_arg2 = instruction.args[2]
+
+    number1 = get_symbol(number_arg1).get_value()
+    number2 = get_symbol(number_arg2).get_value()
+
+    result = None
+    if operator == 0:
+        result = number1+number2
+    elif operator == 1:
+        result = number1-number2
+    elif operator == 2:
+        result = number1*number2
+    elif operator == 3:
+        result = number1//number2
+    else:
+        eprint("INTERNAL ERROR: arithmetic operation called with operator "+operator)
+    storage.assign_variable(dest_var.value,result,"int")
+
+def compare_operation(instruction, operator):
+    res_arg = instruction.args[0]
+    op1 = get_symbol(instruction.args[1])
+    op2 = get_symbol(instruction.args[2])
+    if(op1.type != op2.type):
+        eprint("Error: Types are not matching!")
+        exit(53)
+    result = None
+    if(operator == 0):
+        result = op1.get_value()<op2.get_value()
+    else:
+        result = op1.get_value()>op2.get_value()
+
+    storage.assign_variable(res_arg.value,result,"bool")
+
+def logical_operation(instruction,operator):
+    res_arg = instruction.args[0]
+    op2 = get_symbol(instruction.args[2])
+    op1 = get_symbol(instruction.args[1])
+    check_type(op1,"bool")
+    check_type(op2,"bool")
+    
+    result = None
+    if(operator == 0):
+        result = op1.get_value() and op2.get_value()
+    elif(operator == 1):
+        result = op1.get_value() or op2.get_value()
+    else:
+        result = not op1.get_value()
+
+    storage.assign_variable(res_arg.value,result,"bool")
+
+
+#INSTRUCTION ACTIONS
 def defvar_action(instruction):
     var_id = instruction.args[0].value
     storage.create_variable(var_id)
@@ -248,13 +323,13 @@ def move_action(instruction):
     origin = get_symbol(origin_var)
     storage.assign_variable(dest_var.value,origin.get_value(),origin.type)
 def add_action(instruction):
-    dest_var = instruction.args[0]
-    number_arg1 = instruction.args[1]
-    number_arg2 = instruction.args[2]
-
-    number1 = get_symbol(number_arg1).get_value()
-    number2 = get_symbol(number_arg2).get_value()
-    storage.assign_variable(dest_var.value,number1+number2,"int")
+    arithmetic_operation(instruction,0)
+def sub_action(instruction):
+    arithmetic_operation(instruction,1)
+def mul_action(instruction):
+    arithmetic_operation(instruction,2)
+def idiv_action(instruction):
+    arithmetic_operation(instruction,3)
 
 def write_action(instruction):
     string_var = get_symbol(instruction.args[0])
@@ -280,19 +355,161 @@ def pushs_action(instruction):
     arg = instruction.args[0]
     variable = get_symbol(arg)
     storage.stack.append(variable)
-          
+
+def eq_action(instruction):
+    res_arg = instruction.args[0]
+    op1 = get_symbol(instruction.args[1])
+    op2 = get_symbol(instruction.args[2])
+    if(op1.type != op2.type and (op1.type != "nil" and op1.type != "nil")):
+        eprint("Error: Types are not matching!")
+        exit(53)
+    storage.assign_variable(res_arg.value,op1.get_value()==op2.get_value(),"bool")
+def lt_action(instruction):
+    compare_operation(instruction,0)
+def gt_action(instruction):
+    compare_operation(instruction,1)
+
+def and_action(instruction):
+    logical_operation(instruction,0)
+def or_action(instruction):
+    logical_operation(instruction,1)
+def not_action(instruction):
+    logical_operation(instruction,2)
+
+def int2char_action(instruction):
+    res_arg = instruction.args[0]
+    op1 = get_symbol(instruction.args[1])
+    check_type(op1,"int")
+    value = op1.get_value()
+    if(value < 0 or value > 1114111):
+        eprint("Error: INT2CHAR accepts integers from 0 to 1114111")
+        exit(58)
+    storage.assign_variable(res_arg.value,chr(value),"string")
+
+def stri2int_action(instruction):
+    res_arg = instruction.args[0]
+    op1 = get_symbol(instruction.args[1])
+    op2 = get_symbol(instruction.args[2])
+    check_type(op1,"string")
+    check_type(op2,"int")
+    string = op1.get_value()
+    pos = op2.get_value()
+    if(pos < 0 or pos > len(string)-1):
+        eprint("Error: STRI2INT wrong position: "+str(pos)+" in string: "+string)
+        exit(58)
+    storage.assign_variable(res_arg.value,ord(string[pos]),"int")
+
+def read_action(instruction):
+    res_arg = instruction.args[0]
+    type_arg = instruction.args[1]
+    type = type_arg.value
+    user_input = None
+    try:
+        user_input = input()
+    except:
+        storage.assign_variable(res_arg.value,"nil","nil")
+        return
+
+    if(type == "int"):
+        try:
+            user_input = int(user_input)
+        except:
+            eprint("Error: Input cannot be converted to int: "+user_input)
+            exit(57)
+        storage.assign_variable(res_arg.value,user_input,"int")
+    elif(type == "bool"):
+        user_input = True if user_input.lower() == "true" else False
+        storage.assign_variable(res_arg.value,user_input,"bool")
+    elif(type == "string"):
+        storage.assign_variable(res_arg.value,user_input,"string")
+    else:
+        eprint("Error: Wrong type in READ: "+type)
+        exit(57)
+
+def concat_action(instruction):
+    res_arg = instruction.args[0]
+    op1 = get_symbol(instruction.args[1])
+    op2 = get_symbol(instruction.args[2])
+    check_type(op1, "string")
+    check_type(op2, "string")
+    storage.assign_variable(res_arg.value,op1.get_value()+op2.get_value(),"string")
+
+def strlen_action(instruction):
+    res_arg = instruction.args[0]
+    op1 = get_symbol(instruction.args[1])
+    check_type(op1, "string")
+    storage.assign_variable(res_arg.value,len(op1.get_value()),"int")
+
+def getchar_action(instruction):
+    res_arg = instruction.args[0]
+    op1 = get_symbol(instruction.args[1])
+    op2 = get_symbol(instruction.args[2])
+    check_type(op1,"string")
+    check_type(op2,"int")
+    string = op1.get_value()
+    pos = op2.get_value()
+    if(pos < 0 or pos > len(string)-1):
+        eprint("Error: GETCHAR wrong position: "+str(pos)+" in string: "+string)
+        exit(58)
+    storage.assign_variable(res_arg.value,string[pos],"string")
+
+def setchar_action(instruction):
+    res_arg = instruction.args[0]
+    op1 = get_symbol(instruction.args[1])
+    op2 = get_symbol(instruction.args[2])
+    check_type(op1,"int")
+    check_type(op2,"string")
+    pos = op1.get_value()
+    char = op2.get_value()
+    string = storage.get_var(res_arg.value).get_value()
+    if(pos < 0 or pos > len(string)-1):
+        eprint("Error: SETCHAR wrong position: "+str(pos)+" in string: "+string)
+        exit(58)
+    string = string[:pos] + char + string[pos + 1:]
+    storage.assign_variable(res_arg.value,string,"string")
+
+def type_action(instruction):
+    res_arg = instruction.args[0]
+    op1 = get_symbol(instruction.args[1])
+    type = "" if op1.type == None else op1.type
+    storage.assign_variable(res_arg.value,type,"string")
+
+def dprint_action(instruction):
+    op1 = get_symbol(instruction.args[0])
+    eprint(op1.get_value(),end='')
+
 #instruction action mapping
 set = {}
 set["DEFVAR"] = defvar_action
 set["MOVE"] = move_action
 set["ADD"] = add_action
+set["SUB"] = sub_action
+set["MUL"] = mul_action
+set["IDIV"] = idiv_action
 set["WRITE"] = write_action
 set["CREATEFRAME"] = createframe_action
 set["PUSHFRAME"] = pushframe_action
 set["POPFRAME"] = popframe_action
 set["POPS"] = pops_action
 set["PUSHS"] = pushs_action
+set["EQ"] = eq_action
+set["LT"] = lt_action
+set["GT"] = gt_action
+set["AND"] = and_action
+set["OR"] = or_action
+set["NOT"] = not_action
+set["INT2CHAR"] = int2char_action
+set["STRI2INT"] = stri2int_action
+set["READ"] = read_action
+set["CONCAT"] = concat_action
+set["STRLEN"] = strlen_action
+set["GETCHAR"] = getchar_action
+set["SETCHAR"] = setchar_action
+set["TYPE"] = type_action
 
+set["DPRINT"] = dprint_action
+
+callstack = []
 program = []
 tree = XML.parse(sourcename)
 program_element = tree.getroot()
