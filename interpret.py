@@ -19,7 +19,7 @@ def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
 def print_help():
-    print("Usage: python3.8 interpret.py --source <xml-file> --input <input-file>")
+    print("Usage: python3.8 interpret.py --file <xml-file> --input <input_file>")
 
 sourcename = None
 inputname = None
@@ -82,11 +82,8 @@ class Instruction:
     action = None
     index = None
 
-    def __init__(self,opcode,order):
-        check_opcode(opcode)
-        self.opcode = opcode.upper()
-        check_order(order)
-        self.order = int(order)
+    def __init__(self,opcode):
+        self.opcode = opcode
     def __str__(self):
         strn = "Instruction: {order: "+str(self.order)+",\topcode: "+self.opcode+",\targs: "
         if len(self.args):
@@ -239,13 +236,8 @@ class Variable:
     def type_adjust(self):
         if self.type == None:
             eprint("INTERNAL ERROR: type_adjust on None type in "+str(self))
-            exit(99)
         if self.type == "int":
-            try:
-                self.value = int(self.value)
-            except:
-                eprint("Error: Value",self.value," is not an int")
-                exit(32)
+            self.value = int(self.value)
         elif self.type == "bool":
             self.value = True if self.value == "true" else False
         elif self.type == "string":
@@ -356,9 +348,6 @@ def arithmetic_operation(instruction, operator):
     elif operator == 2:
         result = number1*number2
     elif operator == 3:
-        if number2 == 0:
-            eprint("Error: Division by 0")
-            exit(57)
         result = number1//number2
     else:
         eprint("INTERNAL ERROR: arithmetic operation called with operator "+operator)
@@ -396,31 +385,20 @@ def logical_operation(instruction,operator):
 
     storage.assign_variable(res_arg.value,result,"bool")
 
-def get_label(label_name):
-    for label in storage.labels:
-        if label.name == label_name:
-            return label
-    return None
-
 def label_register(instruction,index):
-    label_name = instruction.args[0].value
-    if get_label(label_name) != None:
-        eprint("Error: Label "+label_name+" already exists")
-        exit(52)
+    label_name = instruction.args[0]
     index = instruction.index
-    label = Label(label_name,index)
+    label = Label(label_name.value,index)
     storage.labels.append(label)
 
 def jump(label_name):
-    label = get_label(label_name)
-    if label != None:
-        # eprint("PC changed from",str(storage.program_counter),"to",str(label.index))
-        storage.program_counter = label.index
-        return
-    else:
-        eprint("Error: Label "+label_name+" does not exist")
-        exit(52)
-
+    for label in storage.labels:
+        if label.name == label_name:
+            # eprint("PC changed from",str(storage.program_counter),"to",str(label.index))
+            storage.program_counter = label.index
+            return
+    eprint("Error: Label "+label_name+" does not exist")
+    exit(52)
 def eprint_frame(frame):
     if frame == None:
         eprint("Frame not created")
@@ -696,33 +674,6 @@ set["EXIT"] = exit_action
 set["DPRINT"] = dprint_action
 set["BREAK"] = break_action
 
-def check_tag(expected,actual):
-    if expected != actual:
-        eprint("Error: Wrong tag! Expected:",expected,"got:",actual)
-        exit(32)
-def check_order(order):
-    try:
-        order = int(order)
-    except:
-        eprint("Error: Wrong instruction order",order)
-        exit(32)
-    if(order < 0):
-        eprint("Error: Wrong instruction order",order)
-        exit(32)
-    for instruction in storage.program:
-        if instruction.order == order:
-            eprint("Error: Two instructions with same order")
-            exit(32)
-def check_opcode(opcode):
-    if opcode == None:
-        eprint("Invalid opcode",opcode)
-        exit(32)
-    for code in set:
-        if opcode.upper() == code:
-            return
-    eprint("Invalid opcode",opcode)
-    exit(32)
-
 try:
     tree = None
     if sourcename != None:
@@ -734,21 +685,20 @@ except:
     eprint("Error: Invalid XML structure")
     exit(31)
 
-check_tag(program_element.tag,"program")
 for instruction_element in program_element:
-    check_tag("instruction",instruction_element.tag)
-    instruction = Instruction(instruction_element.get("opcode"),instruction_element.get("order"))
+    instruction = Instruction(instruction_element.get("opcode"))
+    instruction.order = int(instruction_element.get("order"))
     args = []
     for argument_element in instruction_element:
-        check_tag("arg"+str(len(args)+1),argument_element.tag)
         argument = Argument()
         argument.type = argument_element.get("type")
         argument.value = argument_element.text
         args.append(argument)
     instruction.args = args
+    # print(instruction)
     storage.program.append(instruction)
 
-keyfun = operator.attrgetter("order")
+keyfun= operator.attrgetter("order")
 storage.program.sort(key=keyfun, reverse=False)
 
 program_length = len(storage.program)
@@ -765,3 +715,9 @@ while storage.program_counter < program_length:
     set[instruction.opcode](instruction)
     instructions_executed += 1
     storage.program_counter += 1
+
+# for instruction in program:
+#     set[instruction.opcode](instruction)
+
+# for var in storage.GF:
+#     print(var)
