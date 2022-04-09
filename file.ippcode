@@ -8,11 +8,19 @@ DEFVAR GF@a
 # AND GF@a bool@true int@1
 # STRI2INT GF@a string@cai int@2
 # READ GF@a string
-JUMPIFEQ heh string@aa string@aab
-WRITE string@ciao
-LABEL heh
-WRITE string@ahoj
+# JUMPIFEQ heh nil@nil string@nil
+MOVE GF@a string@
+# WRITE string@tia
+JUMP heh
 
+LABEL foo
+WRITE string@function
+
+RETURN
+LABEL heh
+CALL foo
+WRITE string@after
+# BREAK
 # WRITE string@FUNGUJE
 # WRITE bool@true
 # WRITE string@řetězec\032s\032lomítkem\032\092\032a\010novým\035řádkem

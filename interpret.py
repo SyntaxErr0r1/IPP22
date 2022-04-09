@@ -7,6 +7,7 @@
 # 57 - běhová chyba interpretace – špatná hodnota operandu (např. dělení nulou, špatná návra-tová hodnota instrukce EXIT);
 # 58 - běhová chyba interpretace – chybná práce s řetězcem.
 import xml.etree.ElementTree as XML
+import operator
 from xml.dom import minidom
 
 # from enum import Enum 
@@ -35,11 +36,12 @@ class Instruction:
     order = None
     args = []
     action = None
+    index = None
 
     def __init__(self,opcode):
         self.opcode = opcode
     def __str__(self):
-        strn = "Instruction: {opcode: "+self.opcode+",\targs: "
+        strn = "Instruction: {order: "+str(self.order)+",\topcode: "+self.opcode+",\targs: "
         if len(self.args):
             for arg in self.args:
                 strn += "\n\t"+str(arg)
@@ -207,11 +209,23 @@ class Variable:
     
     def get_value(self):
         if(self.value == None):
-            eprint("Error: Variable "+self.name+" missing value!")
+            eprint("Error: Variable "+str(self.name)+" missing value!")
             exit(56)
-        return self.value
+        return self.value if self.type != "nil" else None
+
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
 
 storage = DataStorage()
+instructions_executed = 0
 
 def replace_altcodes(string):
     altcode_chars_left = 0
@@ -259,6 +273,8 @@ def get_symbol(symbol_arg):
         symbol = Variable()
         symbol.value = symbol_arg.value
         symbol.type = symbol_arg.type
+        if symbol.type == "string" and symbol.value == None:
+            symbol.value = ""
         symbol.type_adjust()
         return symbol
 
@@ -321,14 +337,26 @@ def logical_operation(instruction,operator):
 
     storage.assign_variable(res_arg.value,result,"bool")
 
+def label_register(instruction,index):
+    label_name = instruction.args[0]
+    index = instruction.index
+    label = Label(label_name.value,index)
+    storage.labels.append(label)
+
 def jump(label_name):
     for label in storage.labels:
         if label.name == label_name:
-            # eprint("PC changed from"+program_counter+"to",label.index)
+            # eprint("PC changed from",str(storage.program_counter),"to",str(label.index))
             storage.program_counter = label.index
             return
     eprint("Error: Label "+label_name+" does not exist")
     exit(52)
+def eprint_frame(frame):
+    if frame == None:
+        eprint("Frame not created")
+        return
+    for var in frame:
+        eprint(var)
 
 #INSTRUCTION ACTIONS
 def defvar_action(instruction):
@@ -351,7 +379,7 @@ def idiv_action(instruction):
 
 def write_action(instruction):
     string_var = get_symbol(instruction.args[0])
-    print(string_var.get_value(), end="",flush=True)
+    print(string_var.get_value() if string_var.type != "nil" else "", end="",flush=True)
 
 def createframe_action(instruction):
     storage.create_frame()
@@ -499,12 +527,6 @@ def dprint_action(instruction):
 def label_action(instruction):
     return
 
-def label_register(instruction,index):
-    label_name = instruction.args[0]
-    # index = instruction.index
-    label = Label(label_name.value,index)
-    storage.labels.append(label)
-
 def jump_action(instruction):
     label_name = instruction.args[0].value
     jump(label_name)
@@ -519,20 +541,65 @@ def jumpifeq_action(instruction):
     if op1.get_value() == op2.get_value():
         jump(label_name)
 
+def jumpifneq_action(instruction):
+    label_name = instruction.args[0].value
+    op1 = get_symbol(instruction.args[1])
+    op2 = get_symbol(instruction.args[2])
+    if(op1.type != op2.type and (op1.type != "nil" and op1.type != "nil")):
+        eprint("Error: Types are not matching!")
+        exit(53)
+    if op1.get_value() != op2.get_value():
+        jump(label_name)
+
+def exit_action(instruction):
+    code_var = get_symbol(instruction.args[0])
+    code = code_var.get_value()
+    if 0 <= code and code <= 49:
+        exit(code)
+    else:
+        eprint("Wrong return code in EXIT:",code)
+        exit(57) 
+
+def call_action(instruction):
+    label_name = instruction.args[0].value
+    storage.callstack.append(instruction.index)
+    jump(label_name)
+
+def return_action(instruction):
+    index = storage.callstack.pop()
+    storage.program_counter = index
+
+def break_action(instruction):
+    eprint("--------"+bcolors.WARNING+"BREAK"+bcolors.ENDC+"--------")
+    eprint("Current instruction order:\t",instruction.order)
+    eprint("Total instruction executed:\t",instructions_executed)
+    eprint(bcolors.HEADER+"Global Frame:"+bcolors.ENDC)
+    eprint_frame(storage.GF)
+    eprint(bcolors.HEADER+"Temporary Frame:"+bcolors.ENDC)
+    eprint_frame(storage.TF)
+    eprint(bcolors.HEADER+"Local Frame "+bcolors.ENDC+"(From bottom of the stack):")
+    if len(storage.LF):
+        for frame in storage.LF:
+            eprint("Frame:")
+            eprint_frame(frame)
+    else:
+        eprint("Frame stack empty")
+    eprint("---------------------")
 #instruction action mapping
 set = {}
-set["DEFVAR"] = defvar_action
 set["MOVE"] = move_action
+set["CREATEFRAME"] = createframe_action
+set["PUSHFRAME"] = pushframe_action
+set["POPFRAME"] = popframe_action
+set["DEFVAR"] = defvar_action
+set["CALL"] = call_action
+set["RETURN"] = return_action
+set["PUSHS"] = pushs_action
+set["POPS"] = pops_action
 set["ADD"] = add_action
 set["SUB"] = sub_action
 set["MUL"] = mul_action
 set["IDIV"] = idiv_action
-set["WRITE"] = write_action
-set["CREATEFRAME"] = createframe_action
-set["PUSHFRAME"] = pushframe_action
-set["POPFRAME"] = popframe_action
-set["POPS"] = pops_action
-set["PUSHS"] = pushs_action
 set["EQ"] = eq_action
 set["LT"] = lt_action
 set["GT"] = gt_action
@@ -542,6 +609,7 @@ set["NOT"] = not_action
 set["INT2CHAR"] = int2char_action
 set["STRI2INT"] = stri2int_action
 set["READ"] = read_action
+set["WRITE"] = write_action
 set["CONCAT"] = concat_action
 set["STRLEN"] = strlen_action
 set["GETCHAR"] = getchar_action
@@ -550,16 +618,17 @@ set["TYPE"] = type_action
 set["LABEL"] = label_action
 set["JUMP"] = jump_action
 set["JUMPIFEQ"] = jumpifeq_action
-
+set["JUMPIFNEQ"] = jumpifneq_action
+set["EXIT"] = exit_action
 set["DPRINT"] = dprint_action
+set["BREAK"] = break_action
 
 tree = XML.parse(sourcename)
 program_element = tree.getroot()
-instructions_executed = 0
 
 for instruction_element in program_element:
     instruction = Instruction(instruction_element.get("opcode"))
-    instruction.order = instruction_element.get("order")
+    instruction.order = int(instruction_element.get("order"))
     args = []
     for argument_element in instruction_element:
         argument = Argument()
@@ -570,16 +639,20 @@ for instruction_element in program_element:
     # print(instruction)
     storage.program.append(instruction)
 
-storage.program.sort(key=lambda x: x.order)
+keyfun= operator.attrgetter("order")
+storage.program.sort(key=keyfun, reverse=False)
+
 program_length = len(storage.program)
 
 for i in range(0,program_length):
     instruction = storage.program[i]
+    instruction.index = i
     if instruction.opcode == "LABEL":
         label_register(instruction,i)
 
 while storage.program_counter < program_length:
     instruction = storage.program[storage.program_counter]
+    # eprint("EXECUTING(",str(instruction),")")
     set[instruction.opcode](instruction)
     instructions_executed += 1
     storage.program_counter += 1
