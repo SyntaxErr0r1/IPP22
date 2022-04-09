@@ -43,17 +43,18 @@ $parse_script = "./parse.php";
 if(array_key_exists("parse-script",$options))
     $parse_script = $options["parse-script"];
 
-$int_script = "./interpret.php";
+$int_script = "./interpret.py";
 if(array_key_exists("int-script",$options))
     $int_script = $options["int-script"];
 
 $parse_only = false;
 if(array_key_exists("parse-only",$options))
-    $parse_only = $options["parse-only"];
+    $parse_only = true;
 
 $int_only = false;
 if(array_key_exists("int-only",$options))
-    $int_only = $options["int-only"];
+    $int_only = true;
+
 
 // $jexampath = "/pub/courses/ipp/jexamxml/";
 $jexampath = "/mnt/c/Utils/jexamxml/";
@@ -127,23 +128,46 @@ $test_passed = 0;
             $ret_expected = file_get_contents($rcfile_name);
         }
 
-        $res = popen("php8.1 ".$parse_script." < ".$srcfile_name." > test.out", "r");
+        //RUNNING THE SCRIPT(S)
+        $res = NULL;
+        if($parse_only){
+            $res = popen("php8.1 ".$parse_script." < ".$srcfile_name." > test.out", "r");
+        }else if($int_only){
+            $res = popen("python3 ".$int_script." --source ".$srcfile_name." < ".$infile_name." > test.out", "r");
+        }else{
+            echo("not inplemented\n");
+            $res = 0;
+        }
         $ret_actual = pclose($res);
+        // echo "RETURNED: ";
+        // echo($ret_actual);
         $out_actual = "";
         
         if(file_exists("test.out")){
             $out_actual = file_get_contents("test.out");
         }
-
+        
+        //VALIDATION
         if($ret_expected == $ret_actual){
             // echo "[".$file."] Return codes are matching\n";
             if($ret_actual == 0){
-                $jexamres = popen("java -jar ".$jexampath."jexamxml.jar ".$outfile_name." test.out", "r");
-                $jexamres_ret = pclose($jexamres);
-                if($jexamres_ret == 0){
-                    $test_passed++;
+                //IF PARSE ONLY => VALIDATE USING jexamxml
+                if($parse_only){
+                    $jexamres = popen("java -jar ".$jexampath."jexamxml.jar ".$outfile_name." test.out", "r");
+                    $jexamres_ret = pclose($jexamres);
+                    if($jexamres_ret == 0){
+                        $test_passed++;
+                    }else{
+                        echo "[".$file."] JEXAMRES: ".$jexamres_ret."\n";
+                    }
                 }else{
-                    echo "[".$file."] JEXAMRES: ".$jexamres_ret."\n";
+                    $jexamres = popen("diff ".$outfile_name." test.out", "r");
+                    $jexamres_ret = pclose($jexamres);
+                    if($jexamres_ret == 0){
+                        $test_passed++;
+                    }else{
+                        echo "[".$file."] DIFF: ".$jexamres_ret."\n";
+                    }
                 }
             }else{
                 $test_passed++;

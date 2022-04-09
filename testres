@@ -1,0 +1,9 @@
+[ipp-2022-tests/interpret-only/valid/defvar_move] Return code expected: 0. But got: 32
+[ipp-2022-tests/interpret-only/valid/read] DIFF: 2
+[ipp-2022-tests/interpret-only/xml_structure/arg_order1] Return code expected: 0. But got: 32
+[ipp-2022-tests/interpret-only/xml_structure/arg_quantity1] Return code expected: 32. But got: 0
+[ipp-2022-tests/interpret-only/xml_structure/arg_quantity2] Return code expected: 32. But got: 1
+[ipp-2022-tests/interpret-only/xml_structure/arg_quantity3] Return code expected: 32. But got: 1
+[ipp-2022-tests/interpret-only/xml_structure/zero_order] Return code expected: 32. But got: 0
+--Summary--
+Passed 46/53 tests
