@@ -6,30 +6,74 @@
 # 56 - běhová chyba interpretace – chybějící hodnota (v proměnné, na datovém zásobníku nebov zásobníku volání);
 # 57 - běhová chyba interpretace – špatná hodnota operandu (např. dělení nulou, špatná návra-tová hodnota instrukce EXIT);
 # 58 - běhová chyba interpretace – chybná práce s řetězcem.
+#todo:
+#   check when arg element is missing
+#   check when opcode invalid
+import sys
 import xml.etree.ElementTree as XML
 import operator
 from xml.dom import minidom
-
-# from enum import Enum 
-import sys
+import argparse
 
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
+def print_help():
+    print("Usage: python3.8 interpret.py --file <xml-file> --input <input_file>")
 
-sourcename = "program.xml"
-inputname = "input.xml"
+sourcename = None
+inputname = None
 
-sourcefile = open(sourcename,"r")
+inputfile = ""
+input_lines_read = 0
 
-# class arg_type(Enum):
-#     NIL = 0
-#     INT = 1
-#     STRING = 2
-#     BOOL = 3
-#     LABEL = 4
-#     TYPE = 5
-#     VAR = 6
+for i in range(0,len(sys.argv)):
+    argument = sys.argv[i]
+    if(argument == "--help"):
+        print_help()
+        if(len(sys.argv) > 2):
+            eprint("Error: Wrong parameters")
+            exit(10)
+        exit()
+    elif(argument == "--input"):
+        if(len(sys.argv) > i+1):
+            inputname = sys.argv[i+1]
+            i += 1
+        else:
+            eprint("Error: Expected another parameter")
+            exit(10)
+    elif(argument == "--source"):
+        if(len(sys.argv) > i+1):
+            sourcename = sys.argv[i+1]
+            i += 1
+        else:
+            eprint("Error: Expected another parameter")
+            exit(10)
+
+if len(sys.argv) < 2:
+    eprint("Error: Too few arguments")
+    exit(10)
+
+if sourcename != None:
+    try:
+        sourcefile = open(sourcename,"r")
+    except:
+        eprint("Cannot open sourcefile",sourcename)
+        exit(11)
+
+if inputname != None:
+    try:
+        # inputfile = open(inputname,"r")
+        with open(inputname) as file:
+            inputfile = file.readlines()
+    except:
+        eprint("Cannot open inputfile",inputname)
+        exit(11)
+
+def input_read_file():
+    line = inputfile[storage.input_lines_read]
+    storage.input_lines_read += 1
+    return line
 
 class Instruction:
     opcode = None
@@ -78,6 +122,7 @@ class DataStorage:
     labels = []
     program = []
     program_counter = 0
+    input_lines_read = 0
     #returns frame by var id
     def get_var_frame(self, var_id):
         frame_name = get_frame_name(var_id)
@@ -286,11 +331,14 @@ def check_type(symbol,type):
 #action helper functions
 def arithmetic_operation(instruction, operator):
     dest_var = instruction.args[0]
-    number_arg1 = instruction.args[1]
-    number_arg2 = instruction.args[2]
+    number1_symb = get_symbol(instruction.args[1])
+    number2_symb = get_symbol(instruction.args[2])
+    check_type(number1_symb,"int")
+    check_type(number2_symb,"int")
 
-    number1 = get_symbol(number_arg1).get_value()
-    number2 = get_symbol(number_arg2).get_value()
+    number1 = number1_symb.get_value()
+    number2 = number2_symb.get_value()
+
 
     result = None
     if operator == 0:
@@ -451,7 +499,10 @@ def read_action(instruction):
     type = type_arg.value
     user_input = None
     try:
-        user_input = input()
+        if(inputname != None):
+            user_input = input_read_file()
+        else:
+            user_input = input()
     except:
         storage.assign_variable(res_arg.value,"nil","nil")
         return
@@ -623,8 +674,16 @@ set["EXIT"] = exit_action
 set["DPRINT"] = dprint_action
 set["BREAK"] = break_action
 
-tree = XML.parse(sourcename)
-program_element = tree.getroot()
+try:
+    tree = None
+    if sourcename != None:
+        tree = XML.parse(sourcename)
+    else:
+        tree = XML.parse(sys.stdin)
+    program_element = tree.getroot()
+except:
+    eprint("Error: Invalid XML structure")
+    exit(31)
 
 for instruction_element in program_element:
     instruction = Instruction(instruction_element.get("opcode"))
