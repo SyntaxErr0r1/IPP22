@@ -12,8 +12,7 @@
 import sys
 import xml.etree.ElementTree as XML
 import operator
-from xml.dom import minidom
-import argparse
+import re
 
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
@@ -78,7 +77,7 @@ def input_read_file():
 class Instruction:
     opcode = None
     order = None
-    args = []
+    args = {}
     action = None
     index = None
 
@@ -94,6 +93,12 @@ class Instruction:
                 strn += "\n\t"+str(arg)
         strn += "}"
         return strn
+
+    def get_arg(self,pos):
+        if pos in self.args:
+            return self.args[pos]
+        eprint("Error: Expected argument (order:"+str(self.order)+")")
+        exit(32)
 
 class Argument:
     type = None
@@ -244,6 +249,7 @@ class Variable:
             try:
                 self.value = int(self.value)
             except:
+                #!todo https://moodle.vut.cz/mod/forum/discuss.php?d=695 maybe should just return nil idk
                 eprint("Error: Value",self.value," is not an int")
                 exit(32)
         elif self.type == "bool":
@@ -338,9 +344,9 @@ def check_type(symbol,type):
 
 #action helper functions
 def arithmetic_operation(instruction, operator):
-    dest_var = instruction.args[0]
-    number1_symb = get_symbol(instruction.args[1])
-    number2_symb = get_symbol(instruction.args[2])
+    dest_var = instruction.get_arg(0)
+    number1_symb = get_symbol(instruction.get_arg(1))
+    number2_symb = get_symbol(instruction.get_arg(2))
     check_type(number1_symb,"int")
     check_type(number2_symb,"int")
 
@@ -365,9 +371,9 @@ def arithmetic_operation(instruction, operator):
     storage.assign_variable(dest_var.value,result,"int")
 
 def compare_operation(instruction, operator):
-    res_arg = instruction.args[0]
-    op1 = get_symbol(instruction.args[1])
-    op2 = get_symbol(instruction.args[2])
+    res_arg = instruction.get_arg(0)
+    op1 = get_symbol(instruction.get_arg(1))
+    op2 = get_symbol(instruction.get_arg(2))
     if(op1.type != op2.type):
         eprint("Error: Types are not matching!")
         exit(53)
@@ -380,9 +386,9 @@ def compare_operation(instruction, operator):
     storage.assign_variable(res_arg.value,result,"bool")
 
 def logical_operation(instruction,operator):
-    res_arg = instruction.args[0]
-    op2 = get_symbol(instruction.args[2])
-    op1 = get_symbol(instruction.args[1])
+    res_arg = instruction.get_arg(0)
+    op2 = get_symbol(instruction.get_arg(2))
+    op1 = get_symbol(instruction.get_arg(1))
     check_type(op1,"bool")
     check_type(op2,"bool")
     
@@ -403,7 +409,7 @@ def get_label(label_name):
     return None
 
 def label_register(instruction,index):
-    label_name = instruction.args[0].value
+    label_name = instruction.get_arg(0).value
     if get_label(label_name) != None:
         eprint("Error: Label "+label_name+" already exists")
         exit(52)
@@ -430,12 +436,12 @@ def eprint_frame(frame):
 
 #INSTRUCTION ACTIONS
 def defvar_action(instruction):
-    var_id = instruction.args[0].value
+    var_id = instruction.get_arg(0).value
     storage.create_variable(var_id)
 
 def move_action(instruction):
-    dest_var = instruction.args[0]
-    origin_var = instruction.args[1]
+    dest_var = instruction.get_arg(0)
+    origin_var = instruction.get_arg(1)
     origin = get_symbol(origin_var)
     storage.assign_variable(dest_var.value,origin.get_value(),origin.type)
 def add_action(instruction):
@@ -448,8 +454,15 @@ def idiv_action(instruction):
     arithmetic_operation(instruction,3)
 
 def write_action(instruction):
-    string_var = get_symbol(instruction.args[0])
-    print(string_var.get_value() if string_var.type != "nil" else "", end="",flush=True)
+    string_var = get_symbol(instruction.get_arg(0))
+    out = None
+    if string_var.type == "nil":
+        out = ""
+    elif string_var.type == "bool":
+        out = "true" if string_var else "false"
+    else:
+        out = string_var.get_value()
+    print(out, end="",flush=True)
 
 def createframe_action(instruction):
     storage.create_frame()
@@ -463,19 +476,19 @@ def pops_action(instruction):
         eprint("Error: Stack is empty!")
         exit(56)
     var_from_stack = storage.stack.pop()
-    var_id = instruction.args[0]
+    var_id = instruction.get_arg(0)
     storage.assign_variable(var_id.value,var_from_stack.get_value(),var_from_stack.type)
 
 def pushs_action(instruction):
     #todo check for behavior when calling PUSHS on a variable without value
-    arg = instruction.args[0]
+    arg = instruction.get_arg(0)
     variable = get_symbol(arg)
     storage.stack.append(variable)
 
 def eq_action(instruction):
-    res_arg = instruction.args[0]
-    op1 = get_symbol(instruction.args[1])
-    op2 = get_symbol(instruction.args[2])
+    res_arg = instruction.get_arg(0)
+    op1 = get_symbol(instruction.get_arg(1))
+    op2 = get_symbol(instruction.get_arg(2))
     if(op1.type != op2.type and (op1.type != "nil" and op1.type != "nil")):
         eprint("Error: Types are not matching!")
         exit(53)
@@ -493,8 +506,8 @@ def not_action(instruction):
     logical_operation(instruction,2)
 
 def int2char_action(instruction):
-    res_arg = instruction.args[0]
-    op1 = get_symbol(instruction.args[1])
+    res_arg = instruction.get_arg(0)
+    op1 = get_symbol(instruction.get_arg(1))
     check_type(op1,"int")
     value = op1.get_value()
     if(value < 0 or value > 1114111):
@@ -503,9 +516,9 @@ def int2char_action(instruction):
     storage.assign_variable(res_arg.value,chr(value),"string")
 
 def stri2int_action(instruction):
-    res_arg = instruction.args[0]
-    op1 = get_symbol(instruction.args[1])
-    op2 = get_symbol(instruction.args[2])
+    res_arg = instruction.get_arg(0)
+    op1 = get_symbol(instruction.get_arg(1))
+    op2 = get_symbol(instruction.get_arg(2))
     check_type(op1,"string")
     check_type(op2,"int")
     string = op1.get_value()
@@ -516,8 +529,8 @@ def stri2int_action(instruction):
     storage.assign_variable(res_arg.value,ord(string[pos]),"int")
 
 def read_action(instruction):
-    res_arg = instruction.args[0]
-    type_arg = instruction.args[1]
+    res_arg = instruction.get_arg(0)
+    type_arg = instruction.get_arg(1)
     type = type_arg.value
     user_input = None
     try:
@@ -546,23 +559,23 @@ def read_action(instruction):
         exit(57)
 
 def concat_action(instruction):
-    res_arg = instruction.args[0]
-    op1 = get_symbol(instruction.args[1])
-    op2 = get_symbol(instruction.args[2])
+    res_arg = instruction.get_arg(0)
+    op1 = get_symbol(instruction.get_arg(1))
+    op2 = get_symbol(instruction.get_arg(2))
     check_type(op1, "string")
     check_type(op2, "string")
     storage.assign_variable(res_arg.value,op1.get_value()+op2.get_value(),"string")
 
 def strlen_action(instruction):
-    res_arg = instruction.args[0]
-    op1 = get_symbol(instruction.args[1])
+    res_arg = instruction.get_arg(0)
+    op1 = get_symbol(instruction.get_arg(1))
     check_type(op1, "string")
     storage.assign_variable(res_arg.value,len(op1.get_value()),"int")
 
 def getchar_action(instruction):
-    res_arg = instruction.args[0]
-    op1 = get_symbol(instruction.args[1])
-    op2 = get_symbol(instruction.args[2])
+    res_arg = instruction.get_arg(0)
+    op1 = get_symbol(instruction.get_arg(1))
+    op2 = get_symbol(instruction.get_arg(2))
     check_type(op1,"string")
     check_type(op2,"int")
     string = op1.get_value()
@@ -573,9 +586,9 @@ def getchar_action(instruction):
     storage.assign_variable(res_arg.value,string[pos],"string")
 
 def setchar_action(instruction):
-    res_arg = instruction.args[0]
-    op1 = get_symbol(instruction.args[1])
-    op2 = get_symbol(instruction.args[2])
+    res_arg = instruction.get_arg(0)
+    op1 = get_symbol(instruction.get_arg(1))
+    op2 = get_symbol(instruction.get_arg(2))
     check_type(op1,"int")
     check_type(op2,"string")
     pos = op1.get_value()
@@ -588,26 +601,26 @@ def setchar_action(instruction):
     storage.assign_variable(res_arg.value,string,"string")
 
 def type_action(instruction):
-    res_arg = instruction.args[0]
-    op1 = get_symbol(instruction.args[1])
+    res_arg = instruction.get_arg(0)
+    op1 = get_symbol(instruction.get_arg(1))
     type = "" if op1.type == None else op1.type
     storage.assign_variable(res_arg.value,type,"string")
 
 def dprint_action(instruction):
-    op1 = get_symbol(instruction.args[0])
+    op1 = get_symbol(instruction.get_arg(0))
     eprint(op1.get_value(),end='')
 
 def label_action(instruction):
     return
 
 def jump_action(instruction):
-    label_name = instruction.args[0].value
+    label_name = instruction.get_arg(0).value
     jump(label_name)
 
 def jumpifeq_action(instruction):
-    label_name = instruction.args[0].value
-    op1 = get_symbol(instruction.args[1])
-    op2 = get_symbol(instruction.args[2])
+    label_name = instruction.get_arg(0).value
+    op1 = get_symbol(instruction.get_arg(1))
+    op2 = get_symbol(instruction.get_arg(2))
     if(op1.type != op2.type and (op1.type != "nil" and op1.type != "nil")):
         eprint("Error: Types are not matching!")
         exit(53)
@@ -615,9 +628,9 @@ def jumpifeq_action(instruction):
         jump(label_name)
 
 def jumpifneq_action(instruction):
-    label_name = instruction.args[0].value
-    op1 = get_symbol(instruction.args[1])
-    op2 = get_symbol(instruction.args[2])
+    label_name = instruction.get_arg(0).value
+    op1 = get_symbol(instruction.get_arg(1))
+    op2 = get_symbol(instruction.get_arg(2))
     if(op1.type != op2.type and (op1.type != "nil" and op1.type != "nil")):
         eprint("Error: Types are not matching!")
         exit(53)
@@ -625,7 +638,7 @@ def jumpifneq_action(instruction):
         jump(label_name)
 
 def exit_action(instruction):
-    code_var = get_symbol(instruction.args[0])
+    code_var = get_symbol(instruction.get_arg(0))
     code = code_var.get_value()
     if 0 <= code and code <= 49:
         exit(code)
@@ -634,7 +647,7 @@ def exit_action(instruction):
         exit(57) 
 
 def call_action(instruction):
-    label_name = instruction.args[0].value
+    label_name = instruction.get_arg(0).value
     storage.callstack.append(instruction.index)
     jump(label_name)
 
@@ -700,6 +713,18 @@ def check_tag(expected,actual):
     if expected != actual:
         eprint("Error: Wrong tag! Expected:",expected,"got:",actual)
         exit(32)
+
+def append_argument(args,argument,tag):
+    if not re.match("^arg[1-3]$",tag):
+        eprint("Error: Invalid instruction argument tag:",tag)
+        exit(32)
+    pos = int(tag[3])-1
+    if pos in args:
+        eprint("Error: Duplicate instruction argument tag:",tag)
+        exit(32)
+    else:
+        args[pos] = argument
+
 def check_order(order):
     try:
         order = int(order)
@@ -738,13 +763,12 @@ check_tag(program_element.tag,"program")
 for instruction_element in program_element:
     check_tag("instruction",instruction_element.tag)
     instruction = Instruction(instruction_element.get("opcode"),instruction_element.get("order"))
-    args = []
+    args = {}
     for argument_element in instruction_element:
-        check_tag("arg"+str(len(args)+1),argument_element.tag)
         argument = Argument()
         argument.type = argument_element.get("type")
         argument.value = argument_element.text
-        args.append(argument)
+        append_argument(args,argument,argument_element.tag)
     instruction.args = args
     storage.program.append(instruction)
 

@@ -127,7 +127,7 @@ $test_passed = 0;
         }else{
             $ret_expected = file_get_contents($rcfile_name);
         }
-
+        //todo use shellexec instead of popen
         //RUNNING THE SCRIPT(S)
         $res = NULL;
         if($parse_only){
@@ -153,6 +153,7 @@ $test_passed = 0;
             if($ret_actual == 0){
                 //IF PARSE ONLY => VALIDATE USING jexamxml
                 if($parse_only){
+                    #POPEN NOT ALLOWED ON MERLIN
                     $jexamres = popen("java -jar ".$jexampath."jexamxml.jar ".$outfile_name." test.out", "r");
                     $jexamres_ret = pclose($jexamres);
                     if($jexamres_ret == 0){
