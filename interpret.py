@@ -7,8 +7,9 @@
 # 57 - běhová chyba interpretace – špatná hodnota operandu (např. dělení nulou, špatná návra-tová hodnota instrukce EXIT);
 # 58 - běhová chyba interpretace – chybná práce s řetězcem.
 #todo:
-#   check when arg element is missing
-#   check when opcode invalid
+#DONE   check when arg element is missing
+#DONE   check when opcode invalid
+#todo check when passed file is missing
 import sys
 import xml.etree.ElementTree as XML
 import operator

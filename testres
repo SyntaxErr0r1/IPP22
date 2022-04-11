@@ -1,4 +1,0 @@
-[ipp-2022-tests/interpret-only/xml_structure/arg_quantity1] Return code expected: 32. But got: 0
-[ipp-2022-tests/interpret-only/xml_structure/zero_order] Return code expected: 32. But got: 0
---Summary--
-Passed 51/53 tests

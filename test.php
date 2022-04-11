@@ -129,18 +129,19 @@ $test_passed = 0;
         }
         //todo use shellexec instead of popen
         //RUNNING THE SCRIPT(S)
-        $res = NULL;
         if($parse_only){
-            $res = popen("php8.1 ".$parse_script." < ".$srcfile_name." > test.out", "r");
+            $ret_actual = shell_exec("php8.1 ".$parse_script." < ".$srcfile_name." > test.out ; echo $?");
         }else if($int_only){
-            $res = popen("python3 ".$int_script." --source ".$srcfile_name." < ".$infile_name." > test.out", "r");
+            $ret_actual = shell_exec("python3 ".$int_script." --source ".$srcfile_name." < ".$infile_name." > test.out ; echo $?");
         }else{
-            echo("not inplemented\n");
+            $ret_parser = shell_exec("php8.1 ".$parse_script." < ".$srcfile_name." > test.xml ; echo $?");
+            if($ret_parser == 0){
+                $ret_actual = shell_exec("python3 ".$int_script." --source test.xml < ".$infile_name." > test.out ; echo $?");
+            }else{
+                $ret_actual = $ret_parser;
+            }
             $res = 0;
         }
-        $ret_actual = pclose($res);
-        // echo "RETURNED: ";
-        // echo($ret_actual);
         $out_actual = "";
         
         if(file_exists("test.out")){
