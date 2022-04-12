@@ -23,7 +23,7 @@
                         <h3 class="test-case-path">ipp-2022-tests/interpret-only/valid/xml</h3>
                     </div>
                     <div class="test-header-right">
-                        <span class="test-case-expand">V</span>
+                        <!-- <span class="test-case-expand">V</span> -->
                     </div>
                 </div>
                 <div class="test-content">
@@ -50,68 +50,124 @@
                     </div>
                 </div>
             </div>
+            <div class="test-card">
+                <div class="test-header">
+                    <div>
+                        <h3 class="test-status success">OK</h3>
+                        <h3 class="test-case-path">ipp-2022-tests/interpret-only/valid/xml</h3>
+                    </div>
+                    <div class="test-header-right">
+                        <!-- <span class="test-case-expand">V</span> -->
+                    </div>
+                </div>
+                <div class="test-content">
+                    <div class="test-content-line">
+                        <span></span>
+                        <span class="test-content-line-result">
+                            <span>Actual</span>
+                            <span>Expected</span>
+                        </span>
+                    </div>
+                    <div class="test-content-line">
+                        <span>Return code:</span>
+                        <span class="test-content-line-result">
+                            <span>0</span>
+                            <span>0</span>
+                        </span>
+                    </div>
+                    <div class="test-content-line">
+                        <span>Program output:</span>
+                        <span class="test-content-line-result">
+                            <span class="code-line">0</span>
+                            <span class="code-line">0</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div class="test-card">
+                <div class="test-header">
+                    <div>
+                        <h3 class="test-status success">OK</h3>
+                        <h3>Congratulations! All test passed</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="test-card">
+                <div class="test-header">
+                    <div>
+                        <h3 class="test-status warn">WARN</h3>
+                        <h3>No tests have been found :(</h3>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </body>
 
 <style>
     body{
-        font-family: sans-serif;
-    }
-    .test-summary{
-        padding: 10px;
-        border: 1px solid black;
-    }
-    .test-header div h3 {
-        display: inline-block;
-        margin: 0;
-    }
-    .test-status{
-        background-color: rgb(174, 174, 174);
-        padding: 5px;
-        width: 50px;
-        text-align: center;
-        line-height: 20px;
-    }
-    .test-case-path{
-        /* font-family: 'Consolas';  */
-        font-weight: 300;
-    }
-    .test-card{
-        border: 1px solid black;
-        padding: 10px;
-        margin-bottom: 7px;
-    }
-    .container{
-        max-width: 800px;
-        margin: 0 auto;
-    }
-    .test-header{
-        display: flex;
-        justify-content: space-between;
-    }
-    .test-content{
-        margin: 20px 0 0 0;
-    }
-    .test-content-line{
-        display: flex;
-        justify-content: space-between;
-    }
-    .test-content-line-result{
-        width: calc(100% - 150px);
-    }
-    .test-content-line-result span{
-        box-sizing: border-box;
-        padding: 5px;
-        display: inline-block;
-        width: 49%;
-    }
-    .code-line{
-        background-color: rgb(174, 174, 174);
-        font-family: 'Consolas';
-    }
-    .success{background-color: #58BD6E;}
-    .fail   {background-color: #FD6A61;}
+    font-family: sans-serif;
+}
+.test-summary{
+    padding: 10px;
+    border: 1px solid black;
+}
+.test-header div h3 {
+    display: inline-block;
+    margin: 0;
+}
+.test-status{
+    background-color: rgb(174, 174, 174);
+    padding: 5px;
+    width: 60px;
+    text-align: center;
+    line-height: 20px;
+}
+.test-case-path{
+    /* font-family: 'Consolas';  */
+    font-weight: 300;
+}
+.test-card{
+    border: 1px solid black;
+    padding: 10px;
+    margin-bottom: 7px;
+}
+.container{
+    max-width: 800px;
+    margin: 0 auto;
+}
+.test-header{
+    display: flex;
+    justify-content: space-between;
+}
+.test-content{
+    margin: 5px 0 0 0;
+}
+.test-content-line{
+    display: flex;
+    justify-content: space-between;
+}
+.test-content-line-result{
+    width: calc(100% - 150px);
+    display: flex;
+    justify-content: space-around;
+    align-items: flex-start;
+}
+.test-content-line-result span{
+    box-sizing: border-box;
+    padding: 5px;
+    display: inline-block;
+    width: 49%;
+}
+.code-line{
+    background-color: rgb(174, 174, 174);
+    font-family: 'Consolas';
+    overflow: auto;
+}
+.success{background-color: #58BD6E;}
+.warn{background-color: #dfce2f;}
+.fail   {background-color: #FD6A61;}
+.no-flex--inline{display:inline-block;}
 </style>
 
 </html>

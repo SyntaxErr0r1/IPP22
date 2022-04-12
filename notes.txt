@@ -4,8 +4,8 @@ Running the interpret,
 Running the parser and interpret,
 file.ippcode    - source code 
 program.xml     - ouput of parser and input for interpret
-    php8.1 parse.php < file.ippcode > program.xml || python3 interpret.py --source program.xml interpret.py
-
+    php8.1 parse.php < file.ippcode > program.xml && python3 interpret.py --source program.xml interpret.py
+    
 Running the tests,
 runs interpret-only tests
 saves result to testres

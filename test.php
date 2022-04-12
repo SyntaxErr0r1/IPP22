@@ -34,6 +34,29 @@ class TestCase {
     public $out_expected;
     public $result;
     public $message;
+
+    function get_message(){
+        if($this->message == NULL){
+            return "";
+        }else{
+            return $this->message;
+        }   
+    }
+
+    function get_output($parse_only){
+        if($parse_only){
+            return '<span>Message:</span>
+            <span class="test-content-line-result no-flex--inline">
+                '.$this->get_message().'
+            </span>';
+        }else{
+            return '<span>Program output:</span>
+            <span class="test-content-line-result">
+                <span class="code-line">'.$this->out_actual.'</span>
+                <span class="code-line">'.$this->out_expected.'</span>
+            </span>';
+        }
+    }
 }
 
 function get_arguments($argv){
@@ -74,8 +97,8 @@ if(array_key_exists("int-only",$options))
     $int_only = true;
 
 
-// $jexampath = "/pub/courses/ipp/jexamxml/";
-$jexampath = "/mnt/c/Utils/jexamxml/";
+$jexampath = "/pub/courses/ipp/jexamxml/";
+// $jexampath = "/mnt/c/Utils/jexamxml/";
 if(array_key_exists("jexampath",$options))
     $jexampath = $options["jexampath"];
 
@@ -98,7 +121,7 @@ if($recursive){
     $regex = new RegexIterator($dir_iterator, '/^.+\.src$/i', RegexIterator::GET_MATCH);
 
     foreach($regex as $file){
-        array_push($file_list, str_replace('.src', '', $file[0]) );
+        array_push($file_list, $test_dir.str_replace('.src', '', $file[0]) );
     }
 }
 
@@ -189,7 +212,7 @@ foreach($file_list as $file){
                     $case->result = true;
                 }else{
                     // echo "[".$file."] JEXAMRES: ".$jexamres_ret."\n";
-                    $case->messaage = "JEXAMRES return code: ".$jexamres_ret;
+                    $case->message = "JEXAMRES return code: ".$jexamres_ret;
                     $case->result = false;
                 }
             }else{
@@ -200,7 +223,7 @@ foreach($file_list as $file){
                     $case->result = true;
                 }else{
                     // echo "[".$file."] DIFF: ".$diff_ret."\n";
-                    $case->messaage = "diff return code: ".$diff_ret;
+                    $case->message = "diff return code: ".$diff_ret;
                     $case->result = false;
                 }
             }
@@ -232,7 +255,7 @@ echo '<!DOCTYPE html>
     <div class="container">
         <div class="test-summary">
             <h3>Test summary</h3>
-            <p>Result : <strong>'.$test_passed.'/'.$test_cnt.'</strong> test passed</p>
+            <p>Result : <strong>'.$test_passed.'/'.$test_cnt.'</strong> tests passed</p>
             <p>Directory: '.$test_dir.'</p>
             <p>Arguments: '.get_arguments($argv).'</p>
         </div>
@@ -240,6 +263,7 @@ echo '<!DOCTYPE html>
         <div class="test-list">';
 
 foreach ($results as $case) {
+    if(!$case->result)
     echo '<div class="test-card">
             <div class="test-header">
                 <div>
@@ -247,7 +271,7 @@ foreach ($results as $case) {
                     <h3 class="test-case-path">'.$case->directory.'</h3>
                 </div>
                 <div class="test-header-right">
-                    <span class="test-case-expand">V</span>
+                    <!--<span class="test-case-expand">V</span>-->
                 </div>
             </div>
             <div class="test-content">
@@ -266,15 +290,28 @@ foreach ($results as $case) {
                     </span>
                 </div>
                 <div class="test-content-line">
-                    <span>Program output:</span>
-                    <span class="test-content-line-result">
-                        <span class="code-line">'.$case->out_actual.'</span>
-                        <span class="code-line">'.$case->out_expected.'</span>
-                    </span>
+                    '.$case->get_output($parse_only).'
                 </div>
             </div>
         </div>';
-}
+}if($test_cnt == 0){
+    echo '<div class="test-card">
+    <div class="test-header">
+        <div>
+            <h3 class="test-status warn">WARN</h3>
+            <h3>No tests have been found in the directory :(</h3>
+        </div>
+    </div>
+</div>';
+}elseif($test_passed == $test_cnt)
+    echo '<div class="test-card">
+    <div class="test-header">
+        <div>
+            <h3 class="test-status success">OK</h3>
+            <h3>Congratulations! All tests passed</h3>
+        </div>
+    </div>
+</div>';
 echo "        
         </div>
     </div>
@@ -296,7 +333,7 @@ body{
 .test-status{
     background-color: rgb(174, 174, 174);
     padding: 5px;
-    width: 50px;
+    width: 60px;
     text-align: center;
     line-height: 20px;
 }
@@ -326,6 +363,9 @@ body{
 }
 .test-content-line-result{
     width: calc(100% - 150px);
+    display: flex;
+    justify-content: space-around;
+    align-items: flex-start;
 }
 .test-content-line-result span{
     box-sizing: border-box;
@@ -336,9 +376,12 @@ body{
 .code-line{
     background-color: rgb(174, 174, 174);
     font-family: 'Consolas';
+    overflow: auto;
 }
 .success{background-color: #58BD6E;}
+.warn{background-color: #dfce2f;}
 .fail   {background-color: #FD6A61;}
+.no-flex--inline{display:inline-block}
 </style>
 
 </html>";

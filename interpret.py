@@ -177,6 +177,9 @@ class DataStorage:
         var_name = get_var_name(var_id)
         frame_name = get_frame_name(var_id)
         frame = self.get_frame(frame_name)
+        if(frame == None):
+            eprint("Error: Frame "+frame_name+" does not exist!")
+            exit(55)
         
         for variable in frame:
             if variable.name == var_name:
@@ -271,7 +274,8 @@ class Variable:
         if(self.value == None):
             eprint("Error: Variable "+str(self.name)+" missing value!")
             exit(56)
-        return self.value if self.type != "nil" else None
+        # return self.value if self.type != "nil" else None
+        return self.value
 
 class bcolors:
     HEADER = '\033[95m'
@@ -339,6 +343,9 @@ def get_symbol(symbol_arg):
         return symbol
 
 def check_type(symbol,type):
+    if(symbol.type == None):
+        eprint("Error: Variable "+str(symbol.name)+" missing value!")
+        exit(56)
     if(symbol.type != type):
         eprint("Error: exptected type "+type+" but got "+str(symbol))
         exit(53)
@@ -375,21 +382,26 @@ def compare_operation(instruction, operator):
     res_arg = instruction.get_arg(0)
     op1 = get_symbol(instruction.get_arg(1))
     op2 = get_symbol(instruction.get_arg(2))
+    op1_val = op1.get_value()
+    op2_val = op2.get_value()
+    if(op1.type == "nil" or op2.type == "nil"):
+        eprint("Error: nil in compare")
+        exit(53)
     if(op1.type != op2.type):
         eprint("Error: Types are not matching!")
         exit(53)
     result = None
     if(operator == 0):
-        result = op1.get_value()<op2.get_value()
+        result = op1_val<op2_val
     else:
-        result = op1.get_value()>op2.get_value()
+        result = op1_val>op2_val
 
     storage.assign_variable(res_arg.value,result,"bool")
 
 def logical_operation(instruction,operator):
     res_arg = instruction.get_arg(0)
-    op2 = get_symbol(instruction.get_arg(2))
     op1 = get_symbol(instruction.get_arg(1))
+    op2 = get_symbol(instruction.get_arg(2))
     check_type(op1,"bool")
     check_type(op2,"bool")
     
@@ -460,7 +472,7 @@ def write_action(instruction):
     if string_var.type == "nil":
         out = ""
     elif string_var.type == "bool":
-        out = "true" if string_var else "false"
+        out = "true" if string_var.get_value() else "false"
     else:
         out = string_var.get_value()
     print(out, end="",flush=True)
@@ -484,16 +496,21 @@ def pushs_action(instruction):
     #todo check for behavior when calling PUSHS on a variable without value
     arg = instruction.get_arg(0)
     variable = get_symbol(arg)
+    if(variable.value == None):
+        eprint("Error: Variable "+str(variable.name)+" missing value!")
+        exit(56)
     storage.stack.append(variable)
 
 def eq_action(instruction):
     res_arg = instruction.get_arg(0)
     op1 = get_symbol(instruction.get_arg(1))
     op2 = get_symbol(instruction.get_arg(2))
-    if(op1.type != op2.type and (op1.type != "nil" and op1.type != "nil")):
+    op1_val = op1.get_value()
+    op2_val = op2.get_value()
+    if(op1.type != op2.type and (op1.type != "nil" and op2.type != "nil")):
         eprint("Error: Types are not matching!")
         exit(53)
-    storage.assign_variable(res_arg.value,op1.get_value()==op2.get_value(),"bool")
+    storage.assign_variable(res_arg.value,op1_val==op2_val,"bool")
 def lt_action(instruction):
     compare_operation(instruction,0)
 def gt_action(instruction):
@@ -504,7 +521,10 @@ def and_action(instruction):
 def or_action(instruction):
     logical_operation(instruction,1)
 def not_action(instruction):
-    logical_operation(instruction,2)
+    res_arg = instruction.get_arg(0)
+    op1 = get_symbol(instruction.get_arg(1))
+    check_type(op1,"bool")
+    storage.assign_variable(res_arg.value,not op1.get_value(), "bool")
 
 def int2char_action(instruction):
     res_arg = instruction.get_arg(0)
@@ -534,6 +554,7 @@ def read_action(instruction):
     type_arg = instruction.get_arg(1)
     type = type_arg.value
     user_input = None
+    fail = False
     try:
         if(inputname != None):
             user_input = input_read_file()
@@ -547,8 +568,10 @@ def read_action(instruction):
         try:
             user_input = int(user_input)
         except:
-            eprint("Error: Input cannot be converted to int: "+user_input)
-            exit(57)
+            storage.assign_variable(res_arg.value,"nil","nil")
+            return
+            # eprint("Error: Input cannot be converted to int: "+user_input)
+            # exit(57)
         storage.assign_variable(res_arg.value,user_input,"int")
     elif(type == "bool"):
         user_input = True if user_input.lower() == "true" else False
@@ -556,8 +579,9 @@ def read_action(instruction):
     elif(type == "string"):
         storage.assign_variable(res_arg.value,user_input,"string")
     else:
-        eprint("Error: Wrong type in READ: "+type)
-        exit(57)
+        storage.assign_variable(res_arg.value,"nil","nil")
+        # eprint("Error: Wrong type in READ: "+type)
+        # exit(57)
 
 def concat_action(instruction):
     res_arg = instruction.get_arg(0)
@@ -593,12 +617,17 @@ def setchar_action(instruction):
     check_type(op1,"int")
     check_type(op2,"string")
     pos = op1.get_value()
-    char = op2.get_value()
-    string = storage.get_var(res_arg.value).get_value()
+    str2 = op2.get_value()
+    if str2 == "":
+        eprint("Error: str2 empty "+str2)
+        exit(58)
+    string_var = storage.get_var(res_arg.value)
+    string = string_var.get_value()
+    check_type(string_var, "string")
     if(pos < 0 or pos > len(string)-1):
         eprint("Error: SETCHAR wrong position: "+str(pos)+" in string: "+string)
         exit(58)
-    string = string[:pos] + char + string[pos + 1:]
+    string = string[:pos] + str2[0] + string[pos + 1:]
     storage.assign_variable(res_arg.value,string,"string")
 
 def type_action(instruction):
@@ -622,25 +651,30 @@ def jumpifeq_action(instruction):
     label_name = instruction.get_arg(0).value
     op1 = get_symbol(instruction.get_arg(1))
     op2 = get_symbol(instruction.get_arg(2))
-    if(op1.type != op2.type and (op1.type != "nil" and op1.type != "nil")):
+    op1_value = op1.get_value()
+    op2_value = op2.get_value()
+    if(op1.type != op2.type and (op1.type != "nil" and op2.type != "nil")):
         eprint("Error: Types are not matching!")
         exit(53)
-    if op1.get_value() == op2.get_value():
+    if op1_value == op2_value:
         jump(label_name)
 
 def jumpifneq_action(instruction):
     label_name = instruction.get_arg(0).value
     op1 = get_symbol(instruction.get_arg(1))
     op2 = get_symbol(instruction.get_arg(2))
-    if(op1.type != op2.type and (op1.type != "nil" and op1.type != "nil")):
+    op1_value = op1.get_value()
+    op2_value = op2.get_value()
+    if(op1.type != op2.type and (op1.type != "nil" and op2.type != "nil")):
         eprint("Error: Types are not matching!")
         exit(53)
-    if op1.get_value() != op2.get_value():
+    if op1_value != op2_value:
         jump(label_name)
 
 def exit_action(instruction):
     code_var = get_symbol(instruction.get_arg(0))
     code = code_var.get_value()
+    check_type(code_var,"int")
     if 0 <= code and code <= 49:
         exit(code)
     else:
@@ -653,6 +687,9 @@ def call_action(instruction):
     jump(label_name)
 
 def return_action(instruction):
+    if(len(storage.callstack) == 0):
+        eprint("Error: Call stack empty")
+        exit(56)
     index = storage.callstack.pop()
     storage.program_counter = index
 
