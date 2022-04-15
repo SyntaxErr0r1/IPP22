@@ -1,5 +1,6 @@
 <?php
-
+//Name and surname: Juraj Dedič
+//Login: xdedic07
 $options = getopt('', [
     'help',
     'directory:',
@@ -16,14 +17,15 @@ if(array_key_exists("help", $options)){
     error_log("Usage: php8.1 test.php [options]");
     error_log("Options:");
     error_log("--help | shows this text");
-    error_log("--directory <directory> | searches for test files in provided directory");
+    error_log("--directory=<directory> | searches for test files in provided directory");
     error_log("--recursive | if present, will search tests in subdirectories");
-    error_log("--parse-script <path> | path to parser script");
-    error_log("--int-script <path> | path to interpret script");
+    error_log("--parse-script=<path> | path to parser script");
+    error_log("--int-script=<path> | path to interpret script");
     error_log("--parse-only | will only test parser if present");
     error_log("--int-only | will only test interpret if present");
-    error_log("--jexampath <path> | Directory which contains jexamxml.jar");
+    error_log("--jexampath=<path> | Directory which contains jexamxml.jar");
     error_log("--noclean | disable temporary file cleaning");
+    exit(0);
 }
 
 class TestCase {
@@ -175,16 +177,15 @@ foreach($file_list as $file){
     }
     $case->ret_expected = $ret_expected;
 
-    //todo use shellexec instead of popen
     //RUNNING THE SCRIPT(S)
     if($parse_only){
         $ret_actual = shell_exec("php8.1 ".$parse_script." < ".$srcfile_name." > test.out ; echo $?");
     }else if($int_only){
-        $ret_actual = shell_exec("python3 ".$int_script." --source ".$srcfile_name." < ".$infile_name." > test.out ; echo $?");
+        $ret_actual = shell_exec("python3 ".$int_script." --source=".$srcfile_name." < ".$infile_name." > test.out ; echo $?");
     }else{
         $ret_parser = shell_exec("php8.1 ".$parse_script." < ".$srcfile_name." > test.xml ; echo $?");
         if($ret_parser == 0){
-            $ret_actual = shell_exec("python3 ".$int_script." --source test.xml < ".$infile_name." > test.out ; echo $?");
+            $ret_actual = shell_exec("python3 ".$int_script." --source=test.xml < ".$infile_name." > test.out ; echo $?");
         }else{
             $ret_actual = $ret_parser;
         }
@@ -205,8 +206,7 @@ foreach($file_list as $file){
             //IF PARSE ONLY => VALIDATE USING jexamxml
             if($parse_only){
                 #POPEN NOT ALLOWED ON MERLIN
-                $jexamres = popen("java -jar ".$jexampath."jexamxml.jar ".$outfile_name." test.out", "r");
-                $jexamres_ret = pclose($jexamres);
+                $jexamres_ret = shell_exec("java -jar ".$jexampath."jexamxml.jar ".$outfile_name." test.out ; echo $?");
                 if($jexamres_ret == 0){
                     $test_passed++;
                     $case->result = true;
@@ -216,8 +216,7 @@ foreach($file_list as $file){
                     $case->result = false;
                 }
             }else{
-                $diff = popen("diff ".$outfile_name." test.out", "r");
-                $diff_ret = pclose($diff);
+                $diff_ret = shell_exec("diff ".$outfile_name." test.out ; echo $?");
                 if($diff_ret == 0){
                     $test_passed++;
                     $case->result = true;

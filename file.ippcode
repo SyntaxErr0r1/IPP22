@@ -1,20 +1,11 @@
 .IPPcode22
 
 DEFVAR GF@a
+DEFVAR GF@b
 
-NOT GF@a bool@true
+READ GF@a int
 WRITE GF@a
 
-MOVE GF@a bool@false
-BREAK
-NOT GF@a bool@false
-BREAK
-WRITE GF@a
-
-MOVE GF@a bool@true
-NOT GF@a GF@a
-WRITE GF@a
-
-MOVE GF@a bool@false
-NOT GF@a GF@a
-WRITE GF@a
+READ GF@b string
+WRITE GF@b
+WRITE string@end

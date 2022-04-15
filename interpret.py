@@ -1,14 +1,5 @@
-# CHYBY - CHYBOVE KODY
-# 52 - chyba při sémantických kontrolách vstupního kódu v IPPcode22 (např. použití nedefino-vaného návěští, redefinice proměnné);
-# 53 - běhová chyba interpretace – špatné typy operandů;
-# 54 - běhová chyba interpretace – přístup k neexistující proměnné (rámec existuje);
-# 55 - běhová chyba interpretace – rámec neexistuje (např. čtení z prázdného zásobníku rámců);
-# 56 - běhová chyba interpretace – chybějící hodnota (v proměnné, na datovém zásobníku nebov zásobníku volání);
-# 57 - běhová chyba interpretace – špatná hodnota operandu (např. dělení nulou, špatná návra-tová hodnota instrukce EXIT);
-# 58 - běhová chyba interpretace – chybná práce s řetězcem.
-#todo:
-#DONE   check when arg element is missing
-#DONE   check when opcode invalid
+#Name and surname: Juraj Dedič
+#Login: xdedic07
 #todo check when passed file is missing
 import sys
 import xml.etree.ElementTree as XML
@@ -19,7 +10,7 @@ def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
 def print_help():
-    print("Usage: python3.8 interpret.py --source <xml-file> --input <input-file>")
+    print("Usage: python3.8 interpret.py --source=<xml-file> --input=<input-file>")
 
 sourcename = None
 inputname = None
@@ -35,22 +26,12 @@ for i in range(0,len(sys.argv)):
             eprint("Error: Wrong parameters")
             exit(10)
         exit()
-    elif(argument == "--input"):
-        if(len(sys.argv) > i+1):
-            inputname = sys.argv[i+1]
-            i += 1
-        else:
-            eprint("Error: Expected another parameter")
-            exit(10)
-    elif(argument == "--source"):
-        if(len(sys.argv) > i+1):
-            sourcename = sys.argv[i+1]
-            i += 1
-        else:
-            eprint("Error: Expected another parameter")
-            exit(10)
+    elif(re.match("^--input=",argument)):
+        inputname = argument[8:]
+    elif(re.match("^--source=",argument)):
+        sourcename = argument[9:]
 
-if len(sys.argv) < 2:
+if len(sys.argv) < 2 or ( inputname == None and sourcename == None ):
     eprint("Error: Too few arguments")
     exit(10)
 
