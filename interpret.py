@@ -1,14 +1,14 @@
 #Name and surname: Juraj Dedič
 #Login: xdedic07
-#todo check when passed file is missing
 import sys
 import xml.etree.ElementTree as XML
-import operator
 import re
 
+#prints to stderr
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
+#prints usage
 def print_help():
     print("Usage: python3.8 interpret.py --source=<xml-file> --input=<input-file>")
 
@@ -17,6 +17,8 @@ inputname = None
 
 inputfile = ""
 input_lines_read = 0
+
+####### ARGS PARSING #######
 
 for i in range(0,len(sys.argv)):
     argument = sys.argv[i]
@@ -51,16 +53,17 @@ if inputname != None:
         eprint("Cannot open inputfile",inputname)
         exit(11)
 
+#returns one line from input file
 def input_read_file():
     line = inputfile[storage.input_lines_read]
     storage.input_lines_read += 1
     return line
 
+#Holds data for one instruction (opcode, order, index in storage.program array). Has array with arguments
 class Instruction:
     opcode = None
     order = None
     args = {}
-    action = None
     index = None
 
     def __init__(self,opcode,order):
@@ -76,25 +79,20 @@ class Instruction:
         strn += "}"
         return strn
 
+    #performs checks if the argument at position pos exists and returns it
     def get_arg(self,pos):
         if pos in self.args:
             return self.args[pos]
         eprint("Error: Expected argument (order:"+str(self.order)+")")
         exit(32)
 
+#holds type and value of an argument
 class Argument:
     type = None
     value = None
     def __str__(self):
         return "Argument: {type: "+self.type+",\tvalue: "+str(self.value)+"}"
 
-class Frame:
-    data = []
-    def get_variable(self,var_name):
-        return self.data[var_name]
-    
-    def set_variable(self,var_name):
-        return self.data[var_name]
     
 
 #naming
@@ -102,6 +100,11 @@ class Frame:
 # var_name is STRING only the variable name (eg. out)
 # var is an instance of the Variable class
 
+#Singleton 
+#has all the Variables stored inside (all frames and stack)
+#has callstack
+#stores labels
+#stores index of current instruction (program_counter) and position in the input line
 class DataStorage:
     GF = []     #list of variables
     LF = []     #stack of lists of variables
@@ -113,6 +116,7 @@ class DataStorage:
     program = []
     program_counter = 0
     input_lines_read = 0
+
     #returns frame by var id
     def get_var_frame(self, var_id):
         frame_name = get_frame_name(var_id)
@@ -127,6 +131,7 @@ class DataStorage:
         if frame_name == "LF":
             return self.LF[-1] if len(self.LF) else None
     
+    #checks if var is inside the frame
     def exists_variable(self,var_id):
         var_name = get_var_name(var_id)
         frame_name = get_frame_name(var_id)
@@ -137,6 +142,7 @@ class DataStorage:
                 return True
         return False
         
+    #craetes variable without value and type inside a frame
     def create_variable(self, var_id):
         var_name = get_var_name(var_id)
         frame_name = get_frame_name(var_id)
@@ -154,6 +160,7 @@ class DataStorage:
 
         frame.append(new_var)
 
+    #assigns value and type to a variable (var_id)
     def assign_variable(self,var_id,value,type):
         var_name = get_var_name(var_id)
         frame_name = get_frame_name(var_id)
@@ -171,13 +178,14 @@ class DataStorage:
         eprint("Error: Variable "+var_id+" not defined!")
         exit(54)
         
-    
+    #returns variable (var_name) from frame
     def __get_var_by_name(self,frame,var_name):
         for variable in frame:
             if variable.name == var_name:
                 return variable
         return None
 
+    #returns variable (var_id) from frame
     def __get_var_by_id(self,frame,var_id):
         var_name = get_var_name(var_id)
         var = self.__get_var_by_name(frame,var_name)
@@ -187,6 +195,7 @@ class DataStorage:
         else:
             return var
 
+    #returns variable (var_id), finds it frame
     def get_var(self,var_id):
         frame = self.get_var_frame(var_id)
         if(frame == None):
@@ -194,9 +203,11 @@ class DataStorage:
             exit(55)
         return self.__get_var_by_id(frame,var_id)
 
+    #creates new temporary frame
     def create_frame(self):
         self.TF = []
     
+    #pushes temporary frame into frame stack
     def push_frame(self):
         if self.TF == None:
             eprint("Error Temporary Frame does not exist!")
@@ -204,14 +215,14 @@ class DataStorage:
         self.LF.append(self.TF)
         self.TF = None
 
+    #pops frame from fram stack and sets it as temporary frame
     def pop_frame(self):
         if len(self.LF) == 0:
             eprint("Error Local Frame stack empty!")
             exit(55)
         self.TF = self.LF.pop()
     
-
-
+#holds name and index of label inside the program
 class Label:
     name = None
     index = None
@@ -220,12 +231,16 @@ class Label:
         self.name = name
         self.index = index
     
-
+#holds name (without the frame identifier), type and value of variable
 class Variable:
     name = None
     type = None
     value = None
 
+    #adjsuts the type of the variable value
+    #INT => converts it to int
+    #BOOL => converts to bool
+    #STRING => replaces alt codes
     def type_adjust(self):
         if self.type == None:
             eprint("INTERNAL ERROR: type_adjust on None type in "+str(self))
@@ -251,6 +266,7 @@ class Variable:
     def __str__(self):
         return "Variable: {name: "+self.str_name()+",\t type:"+self.str_type()+",\t value:"+self.str_value()+"}"
     
+    #performs check if the variable has value and returns it
     def get_value(self):
         if(self.value == None):
             eprint("Error: Variable "+str(self.name)+" missing value!")
@@ -258,6 +274,7 @@ class Variable:
         # return self.value if self.type != "nil" else None
         return self.value
 
+#for printing colored text into console
 class bcolors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
@@ -272,6 +289,7 @@ class bcolors:
 storage = DataStorage()
 instructions_executed = 0
 
+#replaces altcodes by the apropriate UTF character in given string
 def replace_altcodes(string):
     altcode_chars_left = 0
     altcode_str = ""
@@ -290,6 +308,7 @@ def replace_altcodes(string):
             result_str += current_char
     return result_str
 
+#returns the frame identifier (the part before @)
 def get_frame_name(var_id):
     var_split = var_id.split("@")
     if(len(var_split) < 2):
@@ -299,6 +318,7 @@ def get_frame_name(var_id):
     frame_name = var_split[0]
     return frame_name
 
+#returns name of a variable (the part after @)
 def get_var_name(var_id):
     var_split = var_id.split("@")
     if(len(var_split) < 2):
@@ -309,6 +329,7 @@ def get_var_name(var_id):
     return var_name
 
 #returns Variable object:
+#symbol_arg has type and value
 #if symbol_arg is type VAR  => returns variable from STORAGE
 #if symbol_arg is VALUE     => returns NEW VARiable object (only temporary variable, not in storage)
 def get_symbol(symbol_arg):
@@ -323,6 +344,7 @@ def get_symbol(symbol_arg):
         symbol.type_adjust()
         return symbol
 
+#checks if the symbol has given type
 def check_type(symbol,type):
     if(symbol.type == None):
         eprint("Error: Variable "+str(symbol.name)+" missing value!")
@@ -331,7 +353,9 @@ def check_type(symbol,type):
         eprint("Error: exptected type "+type+" but got "+str(symbol))
         exit(53)
 
-#action helper functions
+#performs given arithmetic operation using instruction arguments
+#operator: 0 => +, 1 => -, 2 => *, 3 => //
+#instruction from which the arguments are loaded
 def arithmetic_operation(instruction, operator):
     dest_var = instruction.get_arg(0)
     number1_symb = get_symbol(instruction.get_arg(1))
@@ -359,6 +383,9 @@ def arithmetic_operation(instruction, operator):
         eprint("INTERNAL ERROR: arithmetic operation called with operator "+operator)
     storage.assign_variable(dest_var.value,result,"int")
 
+#performs compare operation
+#operator: 0 => <, 1 => >
+#instrucion: holds the arguments
 def compare_operation(instruction, operator):
     res_arg = instruction.get_arg(0)
     op1 = get_symbol(instruction.get_arg(1))
@@ -379,6 +406,9 @@ def compare_operation(instruction, operator):
 
     storage.assign_variable(res_arg.value,result,"bool")
 
+#performs logical operation
+#operator: 0 => AND, 1 => OR
+#instruction: holds the arguments
 def logical_operation(instruction,operator):
     res_arg = instruction.get_arg(0)
     op1 = get_symbol(instruction.get_arg(1))
@@ -396,12 +426,16 @@ def logical_operation(instruction,operator):
 
     storage.assign_variable(res_arg.value,result,"bool")
 
+#finds the label (based on label_name) inside the labels array
 def get_label(label_name):
     for label in storage.labels:
         if label.name == label_name:
             return label
     return None
 
+#adds new label into the storage.labels array
+#instruction of the label
+#index: index in the program
 def label_register(instruction,index):
     label_name = instruction.get_arg(0).value
     if get_label(label_name) != None:
@@ -411,6 +445,7 @@ def label_register(instruction,index):
     label = Label(label_name,index)
     storage.labels.append(label)
 
+#changes the program counter based on the provided label name
 def jump(label_name):
     label = get_label(label_name)
     if label != None:
@@ -421,6 +456,7 @@ def jump(label_name):
         eprint("Error: Label "+label_name+" does not exist")
         exit(52)
 
+#debug print the frame
 def eprint_frame(frame):
     if frame == None:
         eprint("Frame not created")
@@ -429,6 +465,7 @@ def eprint_frame(frame):
         eprint(var)
 
 #INSTRUCTION ACTIONS
+#each of these functions is executed when its opcode is interpreted
 def defvar_action(instruction):
     var_id = instruction.get_arg(0).value
     storage.create_variable(var_id)
@@ -474,7 +511,6 @@ def pops_action(instruction):
     storage.assign_variable(var_id.value,var_from_stack.get_value(),var_from_stack.type)
 
 def pushs_action(instruction):
-    #todo check for behavior when calling PUSHS on a variable without value
     arg = instruction.get_arg(0)
     variable = get_symbol(arg)
     if(variable.value == None):
@@ -537,6 +573,7 @@ def read_action(instruction):
     user_input = None
     fail = False
     try:
+        # if --input is provided => read from file
         if(inputname != None):
             user_input = input_read_file()
         else:
@@ -690,7 +727,9 @@ def break_action(instruction):
     else:
         eprint("Frame stack empty")
     eprint("---------------------")
+
 #instruction action mapping
+#each opcode has the function mapped here
 set = {}
 set["MOVE"] = move_action
 set["CREATEFRAME"] = createframe_action
@@ -728,11 +767,14 @@ set["EXIT"] = exit_action
 set["DPRINT"] = dprint_action
 set["BREAK"] = break_action
 
+#checks if the expected and actual tag names are equal
 def check_tag(expected,actual):
     if expected != actual:
         eprint("Error: Wrong tag! Expected:",expected,"got:",actual)
         exit(32)
 
+#appends argument object into args array
+#tag is the tagname of arg (decides to which place it will be assigned)
 def append_argument(args,argument,tag):
     if not re.match("^arg[1-3]$",tag):
         eprint("Error: Invalid instruction argument tag:",tag)
@@ -744,6 +786,7 @@ def append_argument(args,argument,tag):
     else:
         args[pos] = argument
 
+#checks if the order is ok and not duplicate
 def check_order(order):
     try:
         order = int(order)
@@ -757,6 +800,8 @@ def check_order(order):
         if instruction.order == order:
             eprint("Error: Two instructions with same order")
             exit(32)
+
+#checks if the opcode was specified and found in the instruction set
 def check_opcode(opcode):
     if opcode == None:
         eprint("Invalid opcode",opcode)
@@ -766,6 +811,8 @@ def check_opcode(opcode):
             return
     eprint("Invalid opcode",opcode)
     exit(32)
+
+###### PARSING THE SOURCE FILE ######
 
 try:
     tree = None
@@ -777,6 +824,8 @@ try:
 except:
     eprint("Error: Invalid XML structure")
     exit(31)
+
+###### ITERATING THROUGH program ######
 
 check_tag(program_element.tag,"program")
 for instruction_element in program_element:
@@ -791,17 +840,20 @@ for instruction_element in program_element:
     instruction.args = args
     storage.program.append(instruction)
 
-keyfun = operator.attrgetter("order")
-storage.program.sort(key=keyfun, reverse=False)
+# keyfun = operator.attrgetter("order")
+# storage.program.sort(key=keyfun, reverse=False)
+storage.program.sort(key=lambda x: x.order, reverse=False)
 
 program_length = len(storage.program)
 
+#registering the labels
 for i in range(0,program_length):
     instruction = storage.program[i]
     instruction.index = i
     if instruction.opcode == "LABEL":
         label_register(instruction,i)
 
+#executing the program
 while storage.program_counter < program_length:
     instruction = storage.program[storage.program_counter]
     # eprint("EXECUTING(",str(instruction),")")
