@@ -54,8 +54,8 @@ class TestCase {
         }else{
             return '<span>Program output:</span>
             <span class="test-content-line-result">
-                <span class="code-line">'.$this->out_actual.'</span>
-                <span class="code-line">'.$this->out_expected.'</span>
+                <span class="code-line">'.htmlspecialchars($this->out_actual).'</span>
+                <span class="code-line">'.htmlspecialchars($this->out_expected).'</span>
             </span>';
         }
     }
@@ -70,13 +70,31 @@ function get_arguments($argv){
     return $str;
 }
 
+function check_dir($path){
+    if(!file_exists($path) || !is_dir($path)){
+        error_log( "Error: Cannot open directory: ".$path );
+        exit(41);
+    }
+}
+
+function check_file($path){
+    if(!file_exists($path)){
+        error_log( "Error: Cannot open file: ".$path );
+        exit(41);
+    }
+}
+
+/**
+ * ARGS GETTING
+ */
+
 $test_dir = "./";
 if(array_key_exists("directory",$options))
     $test_dir = $options["directory"];
 if($test_dir[strlen($test_dir)-1] != "/"){
     $test_dir = $test_dir."/"; 
 }
-// var_dump($test_dir);
+check_dir($test_dir);
 
 $recursive = false;
 if(array_key_exists("recursive",$options))
@@ -101,12 +119,49 @@ if(array_key_exists("int-only",$options))
 
 $jexampath = "/pub/courses/ipp/jexamxml/";
 // $jexampath = "/mnt/c/Utils/jexamxml/";
-if(array_key_exists("jexampath",$options))
+if(array_key_exists("jexampath",$options)){
     $jexampath = $options["jexampath"];
+    if($jexampath[strlen($jexampath)-1] != "/"){
+        $jexampath = $jexampath."/"; 
+    }
+}
 
 $noclean = false;
 if(array_key_exists("noclean",$options))
-    $noclean = $options["noclean"];
+    $noclean = true;
+
+/**
+ * ARGS CHECKING
+ */
+if($parse_only){
+    if($int_only){
+        error_log("Error: Cannot combine --int-only and --parse-only!");
+        exit(10);
+    }
+    if(array_key_exists("int-script",$options)){
+        error_log("Error: Cannot combine --parse-only and --int-script!");
+        exit(10);
+    }
+    check_file($parse_script);
+}elseif($int_only){
+    if(array_key_exists("parse-script",$options)){
+        error_log("Error: Cannot combine --int-only and --parse-script!");
+        exit(10);
+    }
+    if(array_key_exists("jexampath",$options)){
+        error_log("Error: Cannot combine --int-only and --jexampath!");
+        exit(10);
+    }
+    check_file($int_script);
+}else{
+    check_file($parse_script);
+    check_file($int_script);
+}
+
+
+/**
+ * TEST DIRECTORY SEARCHING
+ */
 
 $file_list = [];
 if($recursive){
@@ -127,28 +182,21 @@ if($recursive){
     }
 }
 
-// var_dump($file_list);
-// $files = scandir($test_dir);
-// foreach($dir_iterator as $file){
-//     // if($file->isDot()) continue;
-//     echo $file->getFilename() . "<br>\n";
+/**
+ * TESTING
+ */
 
-// }
 $results = [];
-// $test_res = [];
 $test_cnt = 0;
 $test_passed = 0;
 foreach($file_list as $file){
     $case = new TestCase();
     $case->directory = $file;
-    // $print_test_case_begin($file)
 
     $srcfile_name = $file.".src";
     $infile_name = $file.".in";
     $outfile_name = $file.".out";
     $rcfile_name = $file.".rc";
-
-    // $src = file_get_contents($srcfile_name);
 
     //INPUT FILE
     if(!file_exists($infile_name)){
@@ -179,13 +227,13 @@ foreach($file_list as $file){
 
     //RUNNING THE SCRIPT(S)
     if($parse_only){
-        $ret_actual = shell_exec("php8.1 ".$parse_script." < ".$srcfile_name." > test.out ; echo $?");
+        $ret_actual = shell_exec("php8.1 ".$parse_script." < ".$srcfile_name." > ".$file.".test.out ; echo $?");
     }else if($int_only){
-        $ret_actual = shell_exec("python3 ".$int_script." --source=".$srcfile_name." < ".$infile_name." > test.out ; echo $?");
+        $ret_actual = shell_exec("python3 ".$int_script." --source=".$srcfile_name." < ".$infile_name." > ".$file.".test.out ; echo $?");
     }else{
-        $ret_parser = shell_exec("php8.1 ".$parse_script." < ".$srcfile_name." > test.xml ; echo $?");
+        $ret_parser = shell_exec("php8.1 ".$parse_script." < ".$srcfile_name." > ".$file.".test.xml ; echo $?");
         if($ret_parser == 0){
-            $ret_actual = shell_exec("python3 ".$int_script." --source=test.xml < ".$infile_name." > test.out ; echo $?");
+            $ret_actual = shell_exec("python3 ".$int_script." --source=".$file.".test.xml < ".$infile_name." > ".$file.".test.out ; echo $?");
         }else{
             $ret_actual = $ret_parser;
         }
@@ -193,35 +241,42 @@ foreach($file_list as $file){
     }
     $out_actual = "";
     
-    if(file_exists("test.out")){
-        $out_actual = file_get_contents("test.out");
+    if(file_exists($file.".test.out")){
+        $out_actual = file_get_contents($file.".test.out");
     }
     $case->out_actual = $out_actual;
     $case->ret_actual = $ret_actual;
     
     //VALIDATION
     if($ret_expected == $ret_actual){
-        // echo "[".$file."] Return codes are matching\n";
+        
         if($ret_actual == 0){
             //IF PARSE ONLY => VALIDATE USING jexamxml
             if($parse_only){
-                #POPEN NOT ALLOWED ON MERLIN
-                $jexamres_ret = shell_exec("java -jar ".$jexampath."jexamxml.jar ".$outfile_name." test.out ; echo $?");
-                if($jexamres_ret == 0){
+                $jexamres_out = shell_exec("java -jar ".$jexampath."jexamxml.jar ".$outfile_name." ".$file.".test.out");
+                $jexamres_ret = shell_exec("echo $?");
+                $jexamres_out_arr = explode(" ", $jexamres_out);
+                $jexamres_out_line = $jexamres_out_arr[count($jexamres_out_arr) - 2];
+                // error_log("JEXAM ret: ".$jexamres_ret);
+                // error_log("JEXAM out: ".$jexamres_out);
+                // error_log("JEXAM out line: ".$jexamres_out_line);
+                $result_str_ok = "are" == $jexamres_out_line;
+                if($jexamres_ret == 0 && $result_str_ok){
                     $test_passed++;
                     $case->result = true;
                 }else{
-                    // echo "[".$file."] JEXAMRES: ".$jexamres_ret."\n";
-                    $case->message = "JEXAMRES return code: ".$jexamres_ret;
+                    if($jexamres_ret != 0)
+                        $case->message = "JEXAMRES return: ".$jexamres_ret;
+                    else
+                        $case->message = "JEXAMRES: Two files are not identical";
                     $case->result = false;
                 }
             }else{
-                $diff_ret = shell_exec("diff ".$outfile_name." test.out ; echo $?");
+                $diff_ret = shell_exec("diff ".$outfile_name." ".$file.".test.out ; echo $?");
                 if($diff_ret == 0){
                     $test_passed++;
                     $case->result = true;
                 }else{
-                    // echo "[".$file."] DIFF: ".$diff_ret."\n";
                     $case->message = "diff return code: ".$diff_ret;
                     $case->result = false;
                 }
@@ -231,12 +286,19 @@ foreach($file_list as $file){
             $case->result = true;
         }
     }else{
-        // echo "[".$file."] Return code expected: ".$ret_expected.". But got: ".$ret_actual."\n";
         $case->result = false;
     }
     array_push($results,$case);
-    // $test_res[$file] = $ret_expected == $ret_actual;
     $test_cnt++;
+
+    //CLEANUP
+    if(!$noclean){
+        unlink($file.".test.out");
+
+        if(!$parse_only && !$int_only){
+            unlink($file.".test.xml");
+        }
+    }
 }
 // echo "--Summary--\n";
 // echo "Passed ".$test_passed."/".$test_cnt." tests\n";
@@ -254,7 +316,7 @@ echo '<!DOCTYPE html>
     <div class="container">
         <div class="test-summary">
             <h3>Test summary</h3>
-            <p>Result : <strong>'.$test_passed.'/'.$test_cnt.'</strong> tests passed</p>
+            <p>Result : <strong>'.$test_passed.' tests passed. '.$test_cnt-$test_passed.' tests failed. Out of '.$test_cnt.' tests.</strong></p>
             <p>Directory: '.$test_dir.'</p>
             <p>Arguments: '.get_arguments($argv).'</p>
         </div>
@@ -311,6 +373,25 @@ foreach ($results as $case) {
         </div>
     </div>
 </div>';
+if($test_passed > 0){
+    echo '<div class="test-card passed-tests">
+    <div class="test-header">
+        <div>
+            <h3 class="test-status success">OK</h3>
+            <h3>List of passed tests</h3>
+        </div>
+        <div>
+            <button id="toggle-passed">Toggle</button>
+        </div>
+    </div>
+    <div class="test-content">';
+    foreach($results as $case){
+        if($case->result)
+            echo '<p>'.$case->directory.'</p>';
+    }
+    echo '    </div>
+    </div>';
+}
 echo "        
         </div>
     </div>
@@ -377,11 +458,32 @@ body{
     font-family: 'Consolas';
     overflow: auto;
 }
+.passed-tests .test-content p{
+    margin: 3px 0;
+}
+#toggle-passed{
+    padding: 7px 10px;
+    box-shadow: rgb(0 0 0 / 35%) 0px 1px 3px 0px;
+    cursor: pointer;
+    border-radius: 2px;
+    border: none;
+    background: rgb(186 186 186);
+    font-weight: 600;
+}
 .success{background-color: #58BD6E;}
 .warn{background-color: #dfce2f;}
 .fail   {background-color: #FD6A61;}
-.no-flex--inline{display:inline-block}
+.no-flex--inline{display:inline-block;}
+.invisible{display: none;}
 </style>
+
+<script>
+    document.querySelector('.passed-tests .test-content').classList.add('invisible')
+
+    document.getElementById('toggle-passed').addEventListener('click', (event) => {
+        document.querySelector('.passed-tests .test-content').classList.toggle('invisible')
+    })
+</script>
 
 </html>";
 ?>

@@ -100,6 +100,23 @@
                     </div>
                 </div>
             </div>
+            <div class="test-card passed-tests">
+                <div class="test-header">
+                    <div>
+                        <h3 class="test-status success">OK</h3>
+                        <h3>List of passed tests</h3>
+                    </div>
+                    <div>
+                        <button id="toggle-passed">Toggle</button>
+                    </div>
+                </div>
+                <div class="test-content">
+                    <p>ipp-2022-tests/both/add/31</p>
+                    <p>ipp-2022-tests/both/add/31</p>
+                    <p>ipp-2022-tests/both/add/31</p>
+                    <p>ipp-2022-tests/both/add/31</p>
+                </div>
+            </div>
         </div>
     </div>
 </body>
@@ -164,10 +181,31 @@
     font-family: 'Consolas';
     overflow: auto;
 }
+.passed-tests .test-content p{
+    margin: 3px 0;
+}
+#toggle-passed{
+    padding: 7px 10px;
+    box-shadow: rgb(0 0 0 / 35%) 0px 1px 3px 0px;
+    cursor: pointer;
+    border-radius: 2px;
+    border: none;
+    background: rgb(186 186 186);
+    font-weight: 600;
+}
 .success{background-color: #58BD6E;}
 .warn{background-color: #dfce2f;}
 .fail   {background-color: #FD6A61;}
 .no-flex--inline{display:inline-block;}
+.invisible{display: none;}
 </style>
+
+<script>
+    document.querySelector(".passed-tests .test-content").classList.add("invisible")
+
+    document.getElementById("toggle-passed").addEventListener("click", (event) => {
+        document.querySelector(".passed-tests .test-content").classList.toggle("invisible")
+    })
+</script>
 
 </html>
